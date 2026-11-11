@@ -19,30 +19,32 @@ const TABS = {
   Log:     ["Time", "Barrel", "Action", "Blend", "Gravity", "pH", "Bottles", "Priming", "Location", "Note", "By"],
   Ratings: ["Time", "Bottle", "Rating", "Tags", "Name", "Comment"],
 };
+// Sheet tab names (left = what the page calls it, right = the tab name in YOUR Sheet).
+const TAB_NAMES = {
+  Barrels: "Barrels",
+  Blends:  "Blends",
+  Log:     "Fermentation and bottling",
+  Ratings: "Ratings",
+};
 const ACTIONS = ["Fill", "Reading", "Moved", "Bottled", "Note", "Empty"];
 const RATINGS = ["Good", "OK", "Poor"];
 
 function setup() {
   const ss = SpreadsheetApp.getActive();
   Object.keys(TABS).forEach(function (name) {
-    let sh = ss.getSheetByName(name) || ss.insertSheet(name);
-    if (sh.getLastRow() === 0) {
-      sh.appendRow(TABS[name]);
-      sh.setFrozenRows(1);
-      sh.getRange(1, 1, 1, TABS[name].length).setFontWeight("bold").setBackground("#e6f0d6");
-    }
+    tab(ss, name);
   });
   const blank = ss.getSheetByName("Sheet1");
   if (blank && blank.getLastRow() === 0) ss.deleteSheet(blank);
 
-  const barrels = ss.getSheetByName("Barrels");
+  const barrels = tab(ss, "Barrels");
   if (barrels.getLastRow() === 1) barrels.appendRow(["B01", "25 L", "Plastic", "Home", "Example row - change or delete"]);
-  const blends = ss.getSheetByName("Blends");
+  const blends = tab(ss, "Blends");
   if (blends.getLastRow() === 1) blends.appendRow(["26A", 26, "2026-10-04",
     "Dabinett 40% - Home orchard; Bramley 60% - Neighbour's tree", 1.052, 3.5, "Mangrove Jack's M02",
     "Example row - change or delete"]);
   blends.getRange("E:E").setNumberFormat("0.000");
-  ss.getSheetByName("Log").getRange("E:E").setNumberFormat("0.000");
+  tab(ss, "Log").getRange("E:E").setNumberFormat("0.000");
 }
 
 function doGet() {
@@ -50,7 +52,7 @@ function doGet() {
   const tz = ss.getSpreadsheetTimeZone();
   const out = {};
   Object.keys(TABS).forEach(function (name) {
-    const sh = ss.getSheetByName(name);
+    const sh = ss.getSheetByName(TAB_NAMES[name] || name);
     if (!sh) { out[name] = []; return; }
     const rows = sh.getDataRange().getValues();
     const head = rows.shift();
@@ -83,7 +85,7 @@ function doPost(e) {
 
     if (d.kind === "rating") {
       if (RATINGS.indexOf(d.rating) < 0) return reply({ ok: false, error: "Unknown rating" });
-      ss.getSheetByName("Ratings").appendRow([now, clean(d.bottle, 30).toUpperCase(), d.rating,
+      tab(ss, "Ratings").appendRow([now, clean(d.bottle, 30).toUpperCase(), d.rating,
         clean(d.tags, 200), clean(d.name, 40), clean(d.comment, 500)]);
       return reply({ ok: true });
     }
@@ -91,7 +93,7 @@ function doPost(e) {
     if (d.kind === "log") {
       if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong crew PIN" });
       if (ACTIONS.indexOf(d.action) < 0) return reply({ ok: false, error: "Unknown action" });
-      ss.getSheetByName("Log").appendRow([now, clean(d.barrel, 10).toUpperCase(), d.action,
+      tab(ss, "Log").appendRow([now, clean(d.barrel, 10).toUpperCase(), d.action,
         clean(d.blend, 20).toUpperCase(), num(d.gravity), num(d.ph), num(d.bottles), clean(d.priming, 40),
         clean(d.location, 60), clean(d.note, 500), clean(d.by, 40)]);
       return reply({ ok: true });
@@ -103,6 +105,19 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Finds a tab by its name in TAB_NAMES; creates it with headings if it's missing.
+function tab(ss, name) {
+  const real = TAB_NAMES[name] || name;
+  let sh = ss.getSheetByName(real);
+  if (!sh) sh = ss.insertSheet(real);
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(TABS[name]);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, TABS[name].length).setFontWeight("bold").setBackground("#e6f0d6");
+  }
+  return sh;
 }
 
 function clean(s, max) {
