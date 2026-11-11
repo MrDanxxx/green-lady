@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Green Lady Cider</title>
+<link rel="icon" href="img/apple.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!--
+  Green Lady cider - barrel tag page.
+  The NFC tag on each barrel holds ONE link ending in the barrel ID:  .../green-lady/#B1
+  Records live in data.js. All record text is shown with textContent only.
+-->
+<style>
+:root {
+  --bg: #f4efe2; --card: #fffdf7; --ink: #1d2a20; --muted: #5f6b5f; --line: #e2dccb;
+  --green: #2f5d3a; --green-deep: #1c3a25; --apple: #7fae3a; --gold: #b8913c; --pill: #e6f0d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121a14; --card: #1b261e; --ink: #ecf0e6; --muted: #9fae9f; --line: #2c3a2f;
+    --green: #8fc56a; --green-deep: #0e1d13; --apple: #9ccc55; --gold: #d8b25c; --pill: #26391f;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121a14; --card: #1b261e; --ink: #ecf0e6; --muted: #9fae9f; --line: #2c3a2f;
+  --green: #8fc56a; --green-deep: #0e1d13; --apple: #9ccc55; --gold: #d8b25c; --pill: #26391f;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 Inter, system-ui, sans-serif; }
+.sample-bar { background: var(--gold); color: #fff; text-align: center; font-size: 12px; font-weight: 600; letter-spacing: .12em; padding: 4px 16px; }
+header { background: var(--green-deep); color: #f4efe2; text-align: center; padding: 28px 16px 26px; border-bottom: 4px solid var(--gold); }
+header .kicker { font-size: 12px; letter-spacing: .25em; text-transform: uppercase; color: #cfdcc3; }
+header .mark { font-family: Fraunces, Georgia, serif; font-weight: 800; font-size: clamp(40px, 12vw, 64px); line-height: 1; margin: 8px 0 4px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+header .mark svg { width: .8em; height: .8em; flex: none; }
+header .vintage { font-family: Fraunces, Georgia, serif; font-size: 18px; color: var(--gold); letter-spacing: .1em; }
+main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+.card h2 { font-family: Fraunces, Georgia, serif; font-size: 20px; margin: 0 0 12px; color: var(--green); font-weight: 600; }
+.barrel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.barrel-head h1 { font-family: Fraunces, Georgia, serif; margin: 0; font-size: 28px; line-height: 1.15; }
+.barrel-head .sub { color: var(--muted); font-size: 14px; }
+.pill { background: var(--pill); color: var(--green); font-weight: 600; font-size: 13px; padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+.stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.stat .k { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.stat .v { font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+.stat .v.small { font-family: Inter, sans-serif; font-size: 16px; font-weight: 600; padding-top: 4px; }
+.stat .s { font-size: 13px; color: var(--muted); }
+.apples { list-style: none; margin: 0; padding: 0; }
+.apples li { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.apples li:first-child { border-top: 0; padding-top: 0; }
+.apples .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--apple); flex: none; }
+.apples .name { font-weight: 600; }
+.apples .loc { font-size: 14px; color: var(--muted); }
+.apples .share { margin-left: auto; font-weight: 600; color: var(--green); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; padding: 0 6px 6px 0; }
+td { padding: 8px 6px 8px 0; border-top: 1px solid var(--line); vertical-align: top; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.notes { margin: 0; white-space: pre-line; }
+.list a { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); color: inherit; text-decoration: none; }
+.list a:first-child { border-top: 0; padding-top: 0; }
+.list a .name { font-weight: 600; }
+.list a .sub { font-size: 14px; color: var(--muted); }
+.list a:hover .name { color: var(--green); }
+.empty { color: var(--muted); }
+footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 16px 32px; }
+footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="sample-bar" id="sample" hidden>SAMPLE DATA</div>
+<header>
+  <div class="kicker">Home made cider</div>
+  <div class="mark">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#7fae3a" d="M12 7c-2-1.6-6-1.4-7.4 2-1.5 3.6.4 9.3 3.4 11.4 1.4 1 2.6.6 4 0 1.4.6 2.6 1 4 0 3-2.1 4.9-7.8 3.4-11.4C18 5.6 14 5.4 12 7Z"/><path fill="none" stroke="#b8913c" stroke-width="1.6" stroke-linecap="round" d="M12 7c0-2 .6-3.4 2-4.4"/><path fill="#cfe2a8" d="M12.6 5.6c1.2-1.8 3.4-2.4 5-1.8-.8 1.8-3 2.6-5 1.8Z"/></svg>
+    <span>Green Lady</span>
+  </div>
+  <div class="vintage" id="vintage"></div>
+</header>
+
+<main id="main" aria-live="polite">
+  <section class="card"><div class="empty">Reading the tag…</div></section>
+</main>
+
+<footer>Green Lady cider · made at home, drink responsibly · <a href="#">all barrels</a></footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  const $main = document.getElementById("main");
+  if (typeof SAMPLE_DATA !== "undefined" && SAMPLE_DATA) document.getElementById("sample").hidden = false;
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function card(title) {
+    const c = el("section", "card");
+    if (title) c.appendChild(el("h2", null, title));
+    return c;
+  }
+  function fmtDate(s) {
+    const d = new Date(s + "T12:00:00");
+    if (isNaN(d)) return s;
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  }
+  function daysSince(s) {
+    const d = new Date(s + "T12:00:00");
+    if (isNaN(d)) return null;
+    return Math.floor((Date.now() - d) / 86400000);
+  }
+  const sg = g => (typeof g === "number" ? g.toFixed(3) : g);
+  const abv = (og, fg) => Math.max(0, (og - fg) * 131.25);
+  function vintageLabel(v) { return v != null ? "Green Lady " + v : "Green Lady"; }
+
+  function stat(grid, k, v, s, small) {
+    if (v == null || v === "") return;
+    const b = el("div", "stat");
+    b.appendChild(el("div", "k", k));
+    b.appendChild(el("div", "v" + (small ? " small" : ""), v));
+    if (s) b.appendChild(el("div", "s", s));
+    grid.appendChild(b);
+  }
+
+  function latestGravity(batch) {
+    const r = (batch.readings || []).filter(x => typeof x.gravity === "number");
+    return r.length ? r[r.length - 1] : null;
+  }
+
+  function barrelSummary(id) {
+    const b = BARRELS[id], batch = BATCHES[b.batch] || {};
+    const parts = [b.size, batch.vintage != null ? vintageLabel(batch.vintage) : null, batch.status].filter(Boolean);
+    return parts.join(" · ");
+  }
+
+  function showList(title, message) {
+    document.getElementById("vintage").textContent = "";
+    document.title = "Green Lady Cider";
+    $main.replaceChildren();
+    const c = card(title);
+    if (message) c.appendChild(el("p", "empty", message));
+    const list = el("div", "list");
+    Object.keys(BARRELS).forEach(id => {
+      const a = el("a");
+      a.href = "#" + id;
+      const left = el("div");
+      left.appendChild(el("div", "name", BARRELS[id].name));
+      left.appendChild(el("div", "sub", barrelSummary(id)));
+      a.appendChild(left);
+      a.appendChild(el("span", "sub", "›"));
+      list.appendChild(a);
+    });
+    c.appendChild(list);
+    $main.appendChild(c);
+  }
+
+  function showBarrel(b) {
+    const batch = BATCHES[b.batch];
+    $main.replaceChildren();
+    window.scrollTo(0, 0);
+
+    const v = batch && batch.vintage;
+    document.getElementById("vintage").textContent = v != null ? "VINTAGE " + v : "";
+    document.title = b.name + " · " + vintageLabel(v);
+
+    // Barrel + headline numbers
+    const top = card();
+    const head = el("div", "barrel-head");
+    const h = el("div");
+    h.appendChild(el("h1", null, b.name));
+    h.appendChild(el("div", "sub", [b.size, batch && batch.volume ? batch.volume + " in barrel" : null, b.batch ? "Batch " + b.batch : null].filter(Boolean).join(" · ")));
+    head.appendChild(h);
+    if (batch && batch.status) head.appendChild(el("span", "pill", batch.status));
+    top.appendChild(head);
+
+    if (!batch) {
+      top.appendChild(el("p", "empty", "This barrel is empty at the moment."));
+      $main.appendChild(top);
+      history(b);
+      return;
+    }
+
+    const grid = el("div", "stats");
+    if (batch.juiced) {
+      const n = daysSince(batch.juiced);
+      stat(grid, "Juiced", fmtDate(batch.juiced), n != null && n >= 0 ? n + (n === 1 ? " day ago" : " days ago") : null, true);
+    }
+    stat(grid, "Yeast", batch.yeast, null, true);
+    stat(grid, "Starting gravity", batch.gravity != null ? sg(batch.gravity) : null,
+         typeof batch.gravity === "number" ? "Potential " + abv(batch.gravity, 1.0).toFixed(1) + "% ABV" : null);
+    stat(grid, "Starting pH", batch.ph != null ? String(batch.ph) : null);
+    const last = latestGravity(batch);
+    if (last && typeof batch.gravity === "number" && last.gravity < batch.gravity) {
+      stat(grid, "Latest gravity", sg(last.gravity), fmtDate(last.date));
+      stat(grid, "ABV so far", abv(batch.gravity, last.gravity).toFixed(1) + "%", "From gravity drop");
+    }
+    top.appendChild(grid);
+    $main.appendChild(top);
+
+    // Apples
+    if (batch.apples && batch.apples.length) {
+      const c = card("The apples");
+      const ul = el("ul", "apples");
+      batch.apples.forEach(a => {
+        const li = el("li");
+        li.appendChild(el("span", "dot"));
+        const t = el("div");
+        t.appendChild(el("div", "name", a.variety));
+        if (a.location) t.appendChild(el("div", "loc", a.location));
+        li.appendChild(t);
+        if (a.share) li.appendChild(el("span", "share", a.share));
+        ul.appendChild(li);
+      });
+      c.appendChild(ul);
+      $main.appendChild(c);
+    }
+
+    // Readings
+    if (batch.readings && batch.readings.length) {
+      const c = card("Readings");
+      const t = el("table");
+      const hr = el("tr");
+      ["Date", "Gravity", "pH", "Notes"].forEach(x => hr.appendChild(el("th", null, x)));
+      t.appendChild(hr);
+      batch.readings.forEach(r => {
+        const tr = el("tr");
+        tr.appendChild(el("td", "num", fmtDate(r.date)));
+        tr.appendChild(el("td", "num", r.gravity != null ? sg(r.gravity) : "–"));
+        tr.appendChild(el("td", "num", r.ph != null ? String(r.ph) : "–"));
+        tr.appendChild(el("td", null, r.note || ""));
+        t.appendChild(tr);
+      });
+      c.appendChild(t);
+      $main.appendChild(c);
+    }
+
+    if (batch.notes) {
+      const c = card("Notes");
+      c.appendChild(el("p", "notes", batch.notes));
+      $main.appendChild(c);
+    }
+
+    history(b);
+  }
+
+  function history(b) {
+    const past = (b.history || []).filter(k => BATCHES[k]);
+    if (!past.length) return;
+    const c = card("Previous fills");
+    const list = el("div", "list");
+    past.slice().reverse().forEach(k => {
+      const p = BATCHES[k];
+      const row = el("a");
+      row.href = "#batch:" + k;
+      const left = el("div");
+      left.appendChild(el("div", "name", vintageLabel(p.vintage)));
+      left.appendChild(el("div", "sub", [p.juiced ? "Juiced " + fmtDate(p.juiced) : null, p.yeast].filter(Boolean).join(" · ")));
+      row.appendChild(left);
+      row.appendChild(el("span", "sub", "›"));
+      list.appendChild(row);
+    });
+    c.appendChild(list);
+    $main.appendChild(c);
+  }
+
+  function route() {
+    const raw = decodeURIComponent(location.hash.slice(1)).trim();
+    if (!raw) return showList("Barrels", null);
+    if (raw.startsWith("batch:")) {
+      const k = raw.slice(6);
+      if (BATCHES[k]) return showBarrel({ name: "Previous fill", batch: k, history: [] });
+    }
+    const id = raw.toUpperCase();
+    if (BARRELS[id]) return showBarrel(BARRELS[id]);
+    showList("Barrels", "This tag (" + raw + ") isn't linked to a barrel yet.");
+  }
+  window.addEventListener("hashchange", route);
+  route();
+})();
+</script>
+</body>
+</html>
