@@ -11,42 +11,53 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <!--
-  Green Lady cider - barrel tag page.
-  The NFC tag on each barrel holds ONE link ending in the barrel ID:  .../green-lady/#B1
-  Records live in data.js. All record text is shown with textContent only.
+  Green Lady cider - barrel and bottle pages.
+  Data lives in the owner's Google Sheet, served by a Google Apps Script web app (see apps-script/Code.gs).
+  Links:
+    #B07            barrel page (NFC tag / QR on the barrel)
+    #26A-B07-031    bottle page + rating (QR label on the bottle; the -031 bottle number is optional)
+    #league         league table of bottling runs
+    #labels/26A-B07/23   printable bottle QR labels     #labels/barrels   barrel QR stickers
+  All Sheet text is shown with textContent only.
 -->
 <style>
 :root {
   --bg: #f4efe2; --card: #fffdf7; --ink: #1d2a20; --muted: #5f6b5f; --line: #e2dccb;
   --green: #2f5d3a; --green-deep: #1c3a25; --apple: #7fae3a; --gold: #b8913c; --pill: #e6f0d6;
+  --good: #3f8a3a; --ok: #c99a2e; --poor: #b5483a; --input: #ffffff;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #121a14; --card: #1b261e; --ink: #ecf0e6; --muted: #9fae9f; --line: #2c3a2f;
     --green: #8fc56a; --green-deep: #0e1d13; --apple: #9ccc55; --gold: #d8b25c; --pill: #26391f;
+    --good: #6dbb5f; --ok: #e0b54a; --poor: #e07563; --input: #142017;
   }
 }
 :root[data-theme="dark"] {
   --bg: #121a14; --card: #1b261e; --ink: #ecf0e6; --muted: #9fae9f; --line: #2c3a2f;
   --green: #8fc56a; --green-deep: #0e1d13; --apple: #9ccc55; --gold: #d8b25c; --pill: #26391f;
+  --good: #6dbb5f; --ok: #e0b54a; --poor: #e07563; --input: #142017;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 Inter, system-ui, sans-serif; }
-.sample-bar { background: var(--gold); color: #fff; text-align: center; font-size: 12px; font-weight: 600; letter-spacing: .12em; padding: 4px 16px; }
-header { background: var(--green-deep); color: #f4efe2; text-align: center; padding: 28px 16px 26px; border-bottom: 4px solid var(--gold); }
+a { color: var(--green); }
+header { background: var(--green-deep); color: #f4efe2; text-align: center; padding: 24px 16px 22px; border-bottom: 4px solid var(--gold); }
+header a { color: inherit; text-decoration: none; }
 header .kicker { font-size: 12px; letter-spacing: .25em; text-transform: uppercase; color: #cfdcc3; }
-header .mark { font-family: Fraunces, Georgia, serif; font-weight: 800; font-size: clamp(40px, 12vw, 64px); line-height: 1; margin: 8px 0 4px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+header .mark { font-family: Fraunces, Georgia, serif; font-weight: 800; font-size: clamp(38px, 11vw, 60px); line-height: 1; margin: 8px 0 4px; display: flex; align-items: center; justify-content: center; gap: 12px; }
 header .mark svg { width: .8em; height: .8em; flex: none; }
-header .vintage { font-family: Fraunces, Georgia, serif; font-size: 18px; color: var(--gold); letter-spacing: .1em; }
+header .vintage { font-family: Fraunces, Georgia, serif; font-size: 18px; color: var(--gold); letter-spacing: .1em; min-height: 1.4em; }
 main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
 .card h2 { font-family: Fraunces, Georgia, serif; font-size: 20px; margin: 0 0 12px; color: var(--green); font-weight: 600; }
-.barrel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-.barrel-head h1 { font-family: Fraunces, Georgia, serif; margin: 0; font-size: 28px; line-height: 1.15; }
-.barrel-head .sub { color: var(--muted); font-size: 14px; }
+.card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 16px 0 6px; }
+.head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.head h1 { font-family: Fraunces, Georgia, serif; margin: 0; font-size: 28px; line-height: 1.15; }
+.sub { color: var(--muted); font-size: 14px; }
 .pill { background: var(--pill); color: var(--green); font-weight: 600; font-size: 13px; padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
+.pill.empty { background: var(--line); color: var(--muted); }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
-.stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
 .stat .k { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .stat .v { font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
 .stat .v.small { font-family: Inter, sans-serif; font-size: 16px; font-weight: 600; padding-top: 4px; }
@@ -56,234 +67,765 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .apples li:first-child { border-top: 0; padding-top: 0; }
 .apples .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--apple); flex: none; }
 .apples .name { font-weight: 600; }
-.apples .loc { font-size: 14px; color: var(--muted); }
 .apples .share { margin-left: auto; font-weight: 600; color: var(--green); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; padding: 0 6px 6px 0; }
 td { padding: 8px 6px 8px 0; border-top: 1px solid var(--line); vertical-align: top; }
 td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .notes { margin: 0; white-space: pre-line; }
-.list a { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); color: inherit; text-decoration: none; }
-.list a:first-child { border-top: 0; padding-top: 0; }
-.list a .name { font-weight: 600; }
-.list a .sub { font-size: 14px; color: var(--muted); }
+.list a, .list .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); color: inherit; text-decoration: none; }
+.list > :first-child { border-top: 0; padding-top: 0; }
+.list .name { font-weight: 600; }
 .list a:hover .name { color: var(--green); }
-.empty { color: var(--muted); }
+.list .right { text-align: right; flex: none; }
+.muted, .empty { color: var(--muted); }
+.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+button, .button { font: inherit; font-weight: 600; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 12px; cursor: pointer; text-align: center; text-decoration: none; display: inline-block; }
+button.primary, .button.primary { background: var(--green); border-color: var(--green); color: var(--card); }
+button:disabled { opacity: .5; cursor: default; }
+.full { width: 100%; }
+form { margin-top: 14px; display: grid; gap: 12px; }
+label { display: grid; gap: 4px; font-size: 14px; font-weight: 600; }
+label small { font-weight: 400; color: var(--muted); }
+input, select, textarea { font: inherit; font-weight: 400; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--input); color: var(--ink); width: 100%; }
+textarea { min-height: 70px; resize: vertical; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.msg { padding: 10px 12px; border-radius: 8px; font-size: 14px; }
+.msg.ok { background: var(--pill); color: var(--green); }
+.msg.err { background: color-mix(in srgb, var(--poor) 15%, transparent); color: var(--poor); }
+.rate { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.rate button { padding: 14px 6px; font-size: 15px; display: grid; gap: 4px; justify-items: center; }
+.rate button .e { font-size: 30px; line-height: 1; }
+.rate button.on { border-width: 2px; }
+.rate button.on.Good { border-color: var(--good); color: var(--good); }
+.rate button.on.OK { border-color: var(--ok); color: var(--ok); }
+.rate button.on.Poor { border-color: var(--poor); color: var(--poor); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button { padding: 6px 12px; font-size: 14px; font-weight: 500; border-radius: 999px; }
+.chips button.on { background: var(--pill); border-color: var(--green); color: var(--green); }
+.bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--line); margin: 8px 0 4px; }
+.bar span { display: block; }
+.score { font-family: Fraunces, Georgia, serif; font-size: 22px; font-weight: 600; }
+.rank { font-family: Fraunces, Georgia, serif; font-weight: 800; font-size: 20px; color: var(--gold); width: 28px; flex: none; }
+.codebox { display: flex; gap: 8px; }
+.codebox input { text-transform: uppercase; }
 footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 16px 32px; }
 footer a { color: inherit; }
+/* Labels */
+.sheet { background: #fff; color: #000; width: 210mm; padding: 15.1mm 7.2mm 0; display: grid; grid-template-columns: repeat(3, 63.5mm); grid-auto-rows: 38.1mm; column-gap: 2.5mm; margin: 0 auto; }
+.lab { display: flex; align-items: center; gap: 2.5mm; padding: 2.5mm 3mm; overflow: hidden; font-family: Inter, sans-serif; border: 1px dashed #ddd; }
+.lab svg { width: 30mm; height: 30mm; flex: none; }
+.lab .t1 { font-family: Fraunces, Georgia, serif; font-weight: 800; font-size: 12pt; line-height: 1.05; color: #1c3a25; }
+.lab .t2 { font-size: 8pt; font-weight: 600; margin-top: 1mm; }
+.lab .t3 { font-size: 7pt; color: #555; margin-top: 1mm; }
+.lab .big { font-family: Fraunces, Georgia, serif; font-weight: 800; font-size: 26pt; line-height: 1; color: #1c3a25; }
+.sheetwrap { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+@media print {
+  @page { size: A4; margin: 0; }
+  body { background: #fff; }
+  header, footer, .noprint { display: none !important; }
+  main { padding: 0; max-width: none; }
+  .sheetwrap { margin: 0; padding: 0; overflow: visible; }
+  .lab { border: 0; }
+}
 </style>
 </head>
 <body>
-<div class="sample-bar" id="sample" hidden>SAMPLE DATA</div>
 <header>
-  <div class="kicker">Home made cider</div>
-  <div class="mark">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#7fae3a" d="M12 7c-2-1.6-6-1.4-7.4 2-1.5 3.6.4 9.3 3.4 11.4 1.4 1 2.6.6 4 0 1.4.6 2.6 1 4 0 3-2.1 4.9-7.8 3.4-11.4C18 5.6 14 5.4 12 7Z"/><path fill="none" stroke="#b8913c" stroke-width="1.6" stroke-linecap="round" d="M12 7c0-2 .6-3.4 2-4.4"/><path fill="#cfe2a8" d="M12.6 5.6c1.2-1.8 3.4-2.4 5-1.8-.8 1.8-3 2.6-5 1.8Z"/></svg>
-    <span>Green Lady</span>
-  </div>
-  <div class="vintage" id="vintage"></div>
+  <a href="#">
+    <div class="kicker">Home made cider</div>
+    <div class="mark">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#7fae3a" d="M12 7c-2-1.6-6-1.4-7.4 2-1.5 3.6.4 9.3 3.4 11.4 1.4 1 2.6.6 4 0 1.4.6 2.6 1 4 0 3-2.1 4.9-7.8 3.4-11.4C18 5.6 14 5.4 12 7Z"/><path fill="none" stroke="#b8913c" stroke-width="1.6" stroke-linecap="round" d="M12 7c0-2 .6-3.4 2-4.4"/><path fill="#cfe2a8" d="M12.6 5.6c1.2-1.8 3.4-2.4 5-1.8-.8 1.8-3 2.6-5 1.8Z"/></svg>
+      <span>Green Lady</span>
+    </div>
+    <div class="vintage" id="vintage"></div>
+  </a>
 </header>
 
 <main id="main" aria-live="polite">
-  <section class="card"><div class="empty">Reading the tag…</div></section>
+  <section class="card"><div class="empty">Loading…</div></section>
 </main>
 
-<footer>Green Lady cider · made at home, drink responsibly · <a href="#">all barrels</a></footer>
+<footer>Green Lady cider · made at home, drink responsibly · <a href="#">home</a> · <a href="#league">league table</a></footer>
 
-<script src="data.js"></script>
 <script>
 (function () {
+  const API = "https://script.google.com/macros/s/AKfycbyPnkwSR5pzMQDO_WFrjC0AkbpX5nvJRWnoWK29DAfRdYbD-7YWI2CCphQVP72EBGv5/exec";
+  const SITE = "https://mrdanxxx.github.io/green-lady/";
+  const QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
+  const TAGS = ["Great", "Flat", "Too fizzy", "Sour", "Cloudy", "Too dry", "Too sweet", "Off smell"];
+  const RATE = [["Good", "👍", "Loved it"], ["OK", "👌", "OK"], ["Poor", "👎", "Not for me"]];
   const $main = document.getElementById("main");
-  if (typeof SAMPLE_DATA !== "undefined" && SAMPLE_DATA) document.getElementById("sample").hidden = false;
+  let DB = null;
 
+  // ---------- small helpers ----------
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+  };
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text != null) e.textContent = text;
     return e;
   }
-  function card(title) {
-    const c = el("section", "card");
-    if (title) c.appendChild(el("h2", null, title));
-    return c;
-  }
-  function fmtDate(s) {
-    const d = new Date(s + "T12:00:00");
-    if (isNaN(d)) return s;
-    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  }
-  function daysSince(s) {
-    const d = new Date(s + "T12:00:00");
-    if (isNaN(d)) return null;
-    return Math.floor((Date.now() - d) / 86400000);
-  }
-  const sg = g => (typeof g === "number" ? g.toFixed(3) : g);
+  function add(parent, ...kids) { kids.forEach(k => k && parent.appendChild(k)); return parent; }
+  function card(title) { const c = el("section", "card"); if (title) c.appendChild(el("h2", null, title)); return c; }
+  const tidy = s => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
+  const day = s => { const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(s || "")); return m ? m[1] : ""; };
+  const numv = x => (x === "" || x == null || !isFinite(Number(x))) ? null : Number(x);
+  function toDate(s) { const d = new Date(s + "T12:00:00"); return isNaN(d) ? null : d; }
+  function fmtDate(s) { const d = toDate(s); return d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : (s || ""); }
+  function daysBetween(a, b) { const x = toDate(a), y = b ? toDate(b) : new Date(); return x && y ? Math.floor((y - x) / 86400000) : null; }
+  function ago(s) { const n = daysBetween(s); return n == null || n < 0 ? null : n === 0 ? "today" : n + (n === 1 ? " day ago" : " days ago"); }
+  function months(a, b) { const n = daysBetween(a, b); return n == null || n < 0 ? null : (n / 30.44); }
+  const sg = g => (typeof g === "number" ? g.toFixed(3) : "");
   const abv = (og, fg) => Math.max(0, (og - fg) * 131.25);
-  function vintageLabel(v) { return v != null ? "Green Lady " + v : "Green Lady"; }
-
+  const vlabel = v => v != null ? "Green Lady " + v : "Green Lady";
   function stat(grid, k, v, s, small) {
     if (v == null || v === "") return;
     const b = el("div", "stat");
-    b.appendChild(el("div", "k", k));
-    b.appendChild(el("div", "v" + (small ? " small" : ""), v));
-    if (s) b.appendChild(el("div", "s", s));
+    add(b, el("div", "k", k), el("div", "v" + (small ? " small" : ""), v), s ? el("div", "s", s) : null);
     grid.appendChild(b);
   }
+  function setVintage(v) { document.getElementById("vintage").textContent = v != null ? "VINTAGE " + v : ""; }
+  function blendLetter(id) { const m = /^\d+(.*)$/.exec(id); return m && m[1] ? m[1] : id; }
+  function vesselName(b) { return (/^D/.test(b.id) || /glass/i.test(b.type) ? "Demijohn " : "Barrel ") + b.id; }
 
-  function latestGravity(batch) {
-    const r = (batch.readings || []).filter(x => typeof x.gravity === "number");
-    return r.length ? r[r.length - 1] : null;
+  function parseApples(s) {
+    return String(s || "").split(/;|\n/).map(tidy).filter(Boolean).map(part => {
+      const i = part.indexOf(" - ");
+      let left = i >= 0 ? part.slice(0, i) : part, loc = i >= 0 ? part.slice(i + 3).trim() : "";
+      const m = /^(.*?)\s*(\d+(?:\.\d+)?\s*%)\s*$/.exec(left);
+      return { variety: m ? m[1] : left, share: m ? m[2].replace(/\s+/g, "") : "", location: loc };
+    });
+  }
+  function parseCode(s) {
+    const t = String(s || "").toUpperCase().replace(/\s+/g, "");
+    const m = /^(\d+[A-Z]+?)-?([BD]\d{2,3})(?:-?(\d{1,4}))?$/.exec(t);
+    if (!m) return null;
+    const n = m[3] ? m[3].padStart(3, "0") : "";
+    return { blend: m[1], barrel: m[2], n, run: m[1] + "-" + m[2], code: m[1] + "-" + m[2] + (n ? "-" + n : "") };
   }
 
-  function barrelSummary(id) {
-    const b = BARRELS[id], batch = BATCHES[b.batch] || {};
-    const parts = [b.size, batch.vintage != null ? vintageLabel(batch.vintage) : null, batch.status].filter(Boolean);
-    return parts.join(" · ");
+  // ---------- data ----------
+  function build(raw) {
+    const blends = {}, barrels = {}, order = [], runs = {}, ratings = {};
+    (raw.Blends || []).forEach(r => {
+      if (!r.Blend) return;
+      const id = tidy(r.Blend).toUpperCase();
+      let v = numv(r.Vintage);
+      if (v == null) { const m = /^(\d+)/.exec(id); v = m ? Number(m[1]) : null; }
+      if (v != null && v >= 100) v = v % 100;
+      blends[id] = { id, vintage: v, juiced: day(r.Juiced), apples: parseApples(r.Apples), gravity: numv(r.Gravity), ph: numv(r.pH), yeast: tidy(r.Yeast), notes: String(r.Notes || "").trim() };
+    });
+    (raw.Barrels || []).forEach(r => {
+      if (!r.Barrel) return;
+      const id = tidy(r.Barrel).toUpperCase();
+      const sk = Object.keys(r).find(k => /^size/i.test(k));
+      let size = sk ? r[sk] : "";
+      if (size !== "" && /^\d+(\.\d+)?$/.test(String(size))) size = size + " L";
+      barrels[id] = { id, size: tidy(size), type: tidy(r.Type), location: tidy(r.Location), notes: tidy(r.Notes), current: null, history: [] };
+      order.push(id);
+    });
+    (raw.Log || []).forEach(e => {
+      const id = tidy(e.Barrel).toUpperCase(), b = barrels[id];
+      if (!b) return;
+      const ev = { date: day(e.Time), action: tidy(e.Action), blend: tidy(e.Blend).toUpperCase(), gravity: numv(e.Gravity), ph: numv(e.pH),
+                   bottles: numv(e.Bottles), priming: tidy(e.Priming), location: tidy(e.Location), note: String(e.Note || "").trim(), by: tidy(e.By) };
+      switch (ev.action) {
+        case "Fill":
+          if (b.current) b.history.push(b.current);
+          b.current = { blend: ev.blend, filled: ev.date, events: [], by: ev.by };
+          break;
+        case "Moved":
+          if (ev.location) b.location = ev.location;
+          if (b.current) b.current.events.push(ev);
+          break;
+        case "Reading": case "Note":
+          if (b.current) b.current.events.push(ev);
+          break;
+        case "Bottled": {
+          const fill = b.current || { blend: ev.blend, filled: "", events: [] };
+          const blend = ev.blend || fill.blend;
+          const fg = ev.gravity != null ? ev.gravity : lastGravity(fill.events);
+          fill.bottled = ev;
+          runs[blend + "-" + id] = { key: blend + "-" + id, blend, barrel: id, filled: fill.filled, bottled: ev.date, bottles: ev.bottles,
+                                     priming: ev.priming, fg, by: ev.by, note: ev.note, events: fill.events };
+          b.history.push(fill);
+          b.current = null;
+          break;
+        }
+        case "Empty":
+          if (b.current) { b.current.emptied = ev; b.history.push(b.current); }
+          b.current = null;
+          break;
+      }
+    });
+    (raw.Ratings || []).forEach(r => {
+      const p = parseCode(r.Bottle);
+      if (!p || !["Good", "OK", "Poor"].includes(r.Rating)) return;
+      const k = p.run;
+      const a = ratings[k] || (ratings[k] = { Good: 0, OK: 0, Poor: 0, n: 0, tags: {} });
+      a[r.Rating]++; a.n++;
+      String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => a.tags[t] = (a.tags[t] || 0) + 1);
+      if (!runs[k]) runs[k] = { key: k, blend: p.blend, barrel: p.barrel };
+    });
+    return { blends, barrels, order, runs, ratings };
+  }
+  function lastGravity(events) {
+    const g = (events || []).filter(e => e.gravity != null);
+    return g.length ? g[g.length - 1].gravity : null;
+  }
+  async function load() {
+    const r = await fetch(API, { cache: "no-store" });
+    DB = build(await r.json());
+  }
+  async function post(body) {
+    const r = await fetch(API, { method: "POST", body: JSON.stringify(body) });
+    return r.json();
+  }
+  const score = a => a && a.n ? (a.Good + a.OK * 0.5) / a.n : null;
+
+  // ---------- shared blocks ----------
+  function applesCard(blend) {
+    if (!blend || !blend.apples.length) return null;
+    const c = card("The apples"), ul = el("ul", "apples");
+    blend.apples.forEach(a => {
+      const li = el("li"), t = el("div");
+      add(t, el("div", "name", a.variety), a.location ? el("div", "sub", a.location) : null);
+      add(li, el("span", "dot"), t, a.share ? el("span", "share", a.share) : null);
+      ul.appendChild(li);
+    });
+    return add(c, ul);
+  }
+  function readingsCard(events, title) {
+    const rows = (events || []).filter(e => e.gravity != null || e.ph != null || e.note || e.action === "Moved");
+    if (!rows.length) return null;
+    const c = card(title || "Readings"), t = el("table"), hr = el("tr");
+    ["Date", "Gravity", "pH", "Notes"].forEach(x => hr.appendChild(el("th", null, x)));
+    t.appendChild(hr);
+    rows.forEach(r => {
+      const tr = el("tr");
+      const note = r.action === "Moved" ? "Moved to " + r.location + (r.note ? " – " + r.note : "") : r.note;
+      add(tr, el("td", "num", fmtDate(r.date)), el("td", "num", r.gravity != null ? sg(r.gravity) : "–"),
+          el("td", "num", r.ph != null ? String(r.ph) : "–"), el("td", null, [note, r.by ? "(" + r.by + ")" : ""].filter(Boolean).join(" ")));
+      t.appendChild(tr);
+    });
+    return add(c, t);
+  }
+  function ratingBar(a) {
+    const wrap = el("div");
+    if (!a || !a.n) { wrap.appendChild(el("div", "muted", "No ratings yet.")); return wrap; }
+    const bar = el("div", "bar");
+    [["Good", "--good"], ["OK", "--ok"], ["Poor", "--poor"]].forEach(([k, c]) => {
+      if (!a[k]) return;
+      const s = el("span"); s.style.width = (a[k] / a.n * 100) + "%"; s.style.background = "var(" + c + ")"; bar.appendChild(s);
+    });
+    wrap.appendChild(bar);
+    wrap.appendChild(el("div", "sub", a.n + (a.n === 1 ? " rating: " : " ratings: ") + "👍 " + a.Good + " · 👌 " + a.OK + " · 👎 " + a.Poor));
+    const tags = Object.entries(a.tags).sort((x, y) => y[1] - x[1]).slice(0, 4);
+    if (tags.length) wrap.appendChild(el("div", "sub", "Most said: " + tags.map(([t, n]) => t + " (" + n + ")").join(", ")));
+    return wrap;
   }
 
-  function showList(title, message) {
-    document.getElementById("vintage").textContent = "";
+  // ---------- pages ----------
+  function home(message) {
+    setVintage(null);
     document.title = "Green Lady Cider";
     $main.replaceChildren();
-    const c = card(title);
-    if (message) c.appendChild(el("p", "empty", message));
-    const list = el("div", "list");
-    Object.keys(BARRELS).forEach(id => {
-      const a = el("a");
-      a.href = "#" + id;
-      const left = el("div");
-      left.appendChild(el("div", "name", BARRELS[id].name));
-      left.appendChild(el("div", "sub", barrelSummary(id)));
-      a.appendChild(left);
-      a.appendChild(el("span", "sub", "›"));
-      list.appendChild(a);
+
+    const c1 = card("Got a bottle?");
+    c1.appendChild(el("p", "sub", "Scan the label, or type the code from the cap or label (e.g. 26A-B07)."));
+    const f = el("form", "codebox"), inp = el("input");
+    inp.placeholder = "26A-B07"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Bottle code");
+    const go = el("button", "primary", "Go");
+    f.style.marginTop = "0";
+    add(f, inp, go);
+    const fmsg = el("div", "msg err"); fmsg.hidden = true;
+    f.addEventListener("submit", ev => {
+      ev.preventDefault();
+      const v = inp.value.trim().toUpperCase();
+      const p = parseCode(v);
+      if (p) location.hash = p.code;
+      else if (DB.barrels[v]) location.hash = v;
+      else { fmsg.textContent = "That code isn't recognised. It looks like 26A-B07."; fmsg.hidden = false; }
     });
-    c.appendChild(list);
-    $main.appendChild(c);
+    add(c1, f, fmsg);
+    $main.appendChild(c1);
+
+    if (message) { const m = el("div", "msg err", message); m.style.marginBottom = "16px"; $main.insertBefore(m, c1); }
+
+    // barrels grouped by location
+    const groups = {};
+    DB.order.forEach(id => { const b = DB.barrels[id]; (groups[b.location || "Unknown"] ||= []).push(b); });
+    Object.keys(groups).forEach(loc => {
+      const c = card("Barrels · " + loc), list = el("div", "list");
+      groups[loc].forEach(b => {
+        const a = el("a"); a.href = "#" + b.id;
+        const left = el("div");
+        add(left, el("div", "name", vesselName(b)), el("div", "sub", [b.size, b.type].filter(Boolean).join(" · ")));
+        const right = el("div", "right");
+        if (b.current) {
+          const bl = DB.blends[b.current.blend];
+          right.appendChild(el("span", "pill", b.current.blend + (bl && bl.vintage != null ? "" : "")));
+          const d = ago(b.current.filled);
+          if (d) right.appendChild(el("div", "sub", "filled " + d));
+        } else right.appendChild(el("span", "pill empty", "Empty"));
+        add(a, left, right);
+        list.appendChild(a);
+      });
+      $main.appendChild(add(c, list));
+    });
+
+    // blends
+    const ids = Object.keys(DB.blends).sort().reverse();
+    if (ids.length) {
+      const c = card("Blends"), list = el("div", "list");
+      ids.forEach(id => {
+        const bl = DB.blends[id], a = el("a"); a.href = "#blend/" + id;
+        const left = el("div");
+        add(left, el("div", "name", vlabel(bl.vintage) + " · Blend " + blendLetter(id)),
+            el("div", "sub", bl.apples.map(x => x.variety + (x.share ? " " + x.share : "")).join(", ")));
+        add(a, left, el("span", "sub", "›"));
+        list.appendChild(a);
+      });
+      $main.appendChild(add(c, list));
+    }
+
+    const c3 = card("More");
+    const btns = el("div", "btns");
+    const l1 = el("a", "button primary", "League table"); l1.href = "#league";
+    const l2 = el("a", "button", "Barrel QR stickers"); l2.href = "#labels/barrels";
+    add(c3, add(btns, l1, l2));
+    $main.appendChild(c3);
   }
 
-  function showBarrel(b) {
-    const batch = BATCHES[b.batch];
+  function blendStats(grid, blend) {
+    if (!blend) return;
+    if (blend.juiced) stat(grid, "Juiced", fmtDate(blend.juiced), null, true);
+    stat(grid, "Yeast", blend.yeast, null, true);
+    stat(grid, "Starting gravity", blend.gravity != null ? sg(blend.gravity) : null,
+         blend.gravity != null ? "Potential " + abv(blend.gravity, 1.0).toFixed(1) + "% ABV" : null);
+    stat(grid, "Starting pH", blend.ph != null ? String(blend.ph) : null);
+  }
+
+  function barrelPage(b) {
+    const cur = b.current, blend = cur ? DB.blends[cur.blend] : null;
+    setVintage(blend ? blend.vintage : null);
+    document.title = vesselName(b) + " · Green Lady";
     $main.replaceChildren();
     window.scrollTo(0, 0);
 
-    const v = batch && batch.vintage;
-    document.getElementById("vintage").textContent = v != null ? "VINTAGE " + v : "";
-    document.title = b.name + " · " + vintageLabel(v);
-
-    // Barrel + headline numbers
-    const top = card();
-    const head = el("div", "barrel-head");
-    const h = el("div");
-    h.appendChild(el("h1", null, b.name));
-    h.appendChild(el("div", "sub", [b.size, batch && batch.volume ? batch.volume + " in barrel" : null, b.batch ? "Batch " + b.batch : null].filter(Boolean).join(" · ")));
-    head.appendChild(h);
-    if (batch && batch.status) head.appendChild(el("span", "pill", batch.status));
+    const top = card(), head = el("div", "head"), h = el("div");
+    add(h, el("h1", null, vesselName(b)), el("div", "sub", [b.size, b.type, b.location].filter(Boolean).join(" · ")));
+    add(head, h, cur ? el("span", "pill", "Blend " + cur.blend) : el("span", "pill empty", "Empty"));
     top.appendChild(head);
-
-    if (!batch) {
-      top.appendChild(el("p", "empty", "This barrel is empty at the moment."));
-      $main.appendChild(top);
-      history(b);
-      return;
-    }
-
-    const grid = el("div", "stats");
-    if (batch.juiced) {
-      const n = daysSince(batch.juiced);
-      stat(grid, "Juiced", fmtDate(batch.juiced), n != null && n >= 0 ? n + (n === 1 ? " day ago" : " days ago") : null, true);
-    }
-    stat(grid, "Yeast", batch.yeast, null, true);
-    stat(grid, "Starting gravity", batch.gravity != null ? sg(batch.gravity) : null,
-         typeof batch.gravity === "number" ? "Potential " + abv(batch.gravity, 1.0).toFixed(1) + "% ABV" : null);
-    stat(grid, "Starting pH", batch.ph != null ? String(batch.ph) : null);
-    const last = latestGravity(batch);
-    if (last && typeof batch.gravity === "number" && last.gravity < batch.gravity) {
-      stat(grid, "Latest gravity", sg(last.gravity), fmtDate(last.date));
-      stat(grid, "ABV so far", abv(batch.gravity, last.gravity).toFixed(1) + "%", "From gravity drop");
-    }
-    top.appendChild(grid);
+    if (cur) {
+      const grid = el("div", "stats");
+      stat(grid, "Filled", fmtDate(cur.filled), ago(cur.filled), true);
+      blendStats(grid, blend);
+      const g = lastGravity(cur.events);
+      if (g != null && blend && blend.gravity != null && g < blend.gravity) {
+        stat(grid, "Latest gravity", sg(g));
+        stat(grid, "ABV so far", abv(blend.gravity, g).toFixed(1) + "%", "From gravity drop");
+      }
+      top.appendChild(grid);
+      if (!blend) top.appendChild(el("p", "muted", "Blend " + cur.blend + " isn't in the Blends tab yet."));
+    } else top.appendChild(el("p", "muted", "Nothing in this " + (/^D/.test(b.id) ? "demijohn" : "barrel") + " at the moment."));
     $main.appendChild(top);
 
-    // Apples
-    if (batch.apples && batch.apples.length) {
-      const c = card("The apples");
-      const ul = el("ul", "apples");
-      batch.apples.forEach(a => {
-        const li = el("li");
-        li.appendChild(el("span", "dot"));
-        const t = el("div");
-        t.appendChild(el("div", "name", a.variety));
-        if (a.location) t.appendChild(el("div", "loc", a.location));
-        li.appendChild(t);
-        if (a.share) li.appendChild(el("span", "share", a.share));
-        ul.appendChild(li);
+    if (cur) {
+      add($main, applesCard(blend));
+      if (blend && blend.notes) $main.appendChild(add(card("Blend notes"), el("p", "notes", blend.notes)));
+      add($main, readingsCard(cur.events));
+    }
+    $main.appendChild(crewCard(b));
+
+    const past = b.history.slice().reverse();
+    if (past.length) {
+      const c = card("Previous fills"), list = el("div", "list");
+      past.forEach(f => {
+        const bl = DB.blends[f.blend];
+        const a = el(f.bottled ? "a" : "div", f.bottled ? null : "row");
+        if (f.bottled) a.href = "#" + f.blend + "-" + b.id;
+        const left = el("div");
+        add(left, el("div", "name", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + f.blend),
+            el("div", "sub", [f.filled ? "Filled " + fmtDate(f.filled) : null,
+                              f.bottled ? "Bottled " + fmtDate(f.bottled.date) + (f.bottled.bottles ? " (" + f.bottled.bottles + " bottles)" : "") : "Emptied"].filter(Boolean).join(" · ")));
+        add(a, left, f.bottled ? el("span", "sub", "›") : null);
+        list.appendChild(a);
       });
-      c.appendChild(ul);
-      $main.appendChild(c);
+      $main.appendChild(add(c, list));
     }
-
-    // Readings
-    if (batch.readings && batch.readings.length) {
-      const c = card("Readings");
-      const t = el("table");
-      const hr = el("tr");
-      ["Date", "Gravity", "pH", "Notes"].forEach(x => hr.appendChild(el("th", null, x)));
-      t.appendChild(hr);
-      batch.readings.forEach(r => {
-        const tr = el("tr");
-        tr.appendChild(el("td", "num", fmtDate(r.date)));
-        tr.appendChild(el("td", "num", r.gravity != null ? sg(r.gravity) : "–"));
-        tr.appendChild(el("td", "num", r.ph != null ? String(r.ph) : "–"));
-        tr.appendChild(el("td", null, r.note || ""));
-        t.appendChild(tr);
-      });
-      c.appendChild(t);
-      $main.appendChild(c);
-    }
-
-    if (batch.notes) {
-      const c = card("Notes");
-      c.appendChild(el("p", "notes", batch.notes));
-      $main.appendChild(c);
-    }
-
-    history(b);
+    if (b.notes) $main.appendChild(add(card("Barrel notes"), el("p", "notes", b.notes)));
   }
 
-  function history(b) {
-    const past = (b.history || []).filter(k => BATCHES[k]);
-    if (!past.length) return;
-    const c = card("Previous fills");
-    const list = el("div", "list");
-    past.slice().reverse().forEach(k => {
-      const p = BATCHES[k];
-      const row = el("a");
-      row.href = "#batch:" + k;
-      const left = el("div");
-      left.appendChild(el("div", "name", vintageLabel(p.vintage)));
-      left.appendChild(el("div", "sub", [p.juiced ? "Juiced " + fmtDate(p.juiced) : null, p.yeast].filter(Boolean).join(" · ")));
-      row.appendChild(left);
-      row.appendChild(el("span", "sub", "›"));
-      list.appendChild(row);
+  // ----- crew input -----
+  const FIELDS = {
+    Fill:    [["blend", "Which blend?", "blend"], ["note", "Note", "text"]],
+    Reading: [["gravity", "Gravity", "gravity"], ["ph", "pH", "ph"], ["note", "Note", "text"]],
+    Bottled: [["bottles", "How many bottles?", "int"], ["gravity", "Final gravity", "gravity"], ["priming", "Priming sugar", "short", "e.g. 6 g per litre, or none"], ["note", "Note", "text"]],
+    Moved:   [["location", "Moved to", "location"], ["note", "Note", "text"]],
+    Note:    [["note", "Note", "text"]],
+    Empty:   [["note", "Why? (racked, spoiled…)", "text"]],
+  };
+  const LABEL = { Fill: "Fill this barrel", Reading: "+ Reading", Bottled: "Bottled", Moved: "Moved", Note: "+ Note", Empty: "Emptied" };
+
+  function crewCard(b) {
+    const c = card("Crew");
+    c.appendChild(el("p", "sub", "Record what's happened to this " + (/^D/.test(b.id) ? "demijohn" : "barrel") + ". Needs the crew PIN."));
+    const btns = el("div", "btns"), slot = el("div");
+    const actions = b.current ? ["Reading", "Bottled", "Note", "Moved", "Empty"] : ["Fill", "Moved"];
+    actions.forEach((a, i) => {
+      const bt = el("button", i === 0 ? "primary" : null, LABEL[a]);
+      bt.type = "button";
+      bt.addEventListener("click", () => { slot.replaceChildren(crewForm(b, a)); });
+      btns.appendChild(bt);
     });
-    c.appendChild(list);
-    $main.appendChild(c);
+    return add(c, btns, slot);
   }
 
+  function crewForm(b, action) {
+    const f = el("form"), inputs = {};
+    f.appendChild(el("h3", null, LABEL[action] + " · " + b.id));
+    FIELDS[action].forEach(([k, label, kind, hint]) => {
+      const l = el("label");
+      l.appendChild(document.createTextNode(label));
+      let inp;
+      if (kind === "blend") {
+        inp = el("select");
+        Object.keys(DB.blends).sort().reverse().forEach(id => {
+          const o = el("option", null, id + " · " + DB.blends[id].apples.map(x => x.variety).join(", "));
+          o.value = id; inp.appendChild(o);
+        });
+        if (!inp.options.length) { const o = el("option", null, "No blends in the Sheet yet"); o.value = ""; inp.appendChild(o); }
+      } else if (kind === "text") {
+        inp = el("textarea");
+      } else {
+        inp = el("input");
+        if (kind === "gravity") { inp.inputMode = "decimal"; inp.placeholder = "1.010"; }
+        if (kind === "ph") { inp.inputMode = "decimal"; inp.placeholder = "3.5"; }
+        if (kind === "int") { inp.inputMode = "numeric"; inp.placeholder = "23"; }
+        if (kind === "short" && hint) inp.placeholder = hint;
+        if (kind === "location") {
+          const dl = el("datalist"); dl.id = "locs";
+          [...new Set(DB.order.map(id => DB.barrels[id].location).filter(Boolean))].forEach(x => { const o = el("option"); o.value = x; dl.appendChild(o); });
+          l.appendChild(dl); inp.setAttribute("list", "locs");
+        }
+      }
+      inputs[k] = inp;
+      l.appendChild(inp);
+      f.appendChild(l);
+    });
+    const two = el("div", "two");
+    const ln = el("label"); ln.appendChild(document.createTextNode("Your name"));
+    const by = el("input"); by.value = store.get("gl-name") || ""; by.autocomplete = "given-name"; ln.appendChild(by);
+    const lp = el("label"); lp.appendChild(document.createTextNode("Crew PIN"));
+    const pin = el("input"); pin.type = "password"; pin.inputMode = "numeric"; pin.value = store.get("gl-pin") || ""; lp.appendChild(pin);
+    add(f, add(two, ln, lp));
+    const msg = el("div", "msg"); msg.hidden = true;
+    const save = el("button", "primary full", "Save");
+    add(f, save, msg);
+
+    f.addEventListener("submit", async ev => {
+      ev.preventDefault();
+      const body = { kind: "log", action, barrel: b.id, pin: pin.value.trim(), by: by.value.trim() };
+      Object.keys(inputs).forEach(k => body[k] = inputs[k].value.trim());
+      if (action === "Fill" && !body.blend) return show("Add the blend to the Blends tab first.");
+      if (action === "Bottled") body.blend = b.current ? b.current.blend : "";
+      for (const k of ["gravity", "ph", "bottles"]) {
+        if (body[k] && !isFinite(Number(body[k].replace(",", ".")))) return show("That " + (k === "ph" ? "pH" : k) + " doesn't look like a number.");
+        if (body[k]) body[k] = body[k].replace(",", ".");
+      }
+      if (action === "Reading" && !body.gravity && !body.ph && !body.note) return show("Enter a gravity, pH or note.");
+      if (action === "Moved" && !body.location) return show("Where has it gone?");
+      if (!body.pin) return show("Enter the crew PIN.");
+      save.disabled = true; save.textContent = "Saving…";
+      try {
+        const r = await post(body);
+        if (!r.ok) {
+          if (/pin/i.test(r.error || "")) store.del("gl-pin");
+          save.disabled = false; save.textContent = "Save";
+          return show(r.error || "Couldn't save.");
+        }
+        store.set("gl-pin", body.pin);
+        if (body.by) store.set("gl-name", body.by);
+        await load();
+        barrelPage(DB.barrels[b.id]);
+        const done = el("div", "msg ok", "Saved: " + LABEL[action].replace("+ ", "") + " for " + b.id + ".");
+        $main.insertBefore(done, $main.firstChild);
+        if (action === "Bottled") {
+          const run = body.blend + "-" + b.id;
+          const a = el("a", "button primary full", "Print " + (body.bottles || "") + " bottle labels");
+          a.href = "#labels/" + run + "/" + (parseInt(body.bottles, 10) || 24);
+          a.style.margin = "-6px 0 16px";
+          $main.insertBefore(a, done.nextSibling);
+        }
+      } catch (e) {
+        save.disabled = false; save.textContent = "Save";
+        show("No connection – nothing was saved. Try again.");
+      }
+    });
+    function show(t) { msg.className = "msg err"; msg.textContent = t; msg.hidden = false; }
+    return f;
+  }
+
+  // ----- bottle page + rating -----
+  function bottlePage(p) {
+    const blend = DB.blends[p.blend], run = DB.runs[p.run], barrel = DB.barrels[p.barrel];
+    setVintage(blend ? blend.vintage : null);
+    document.title = "Bottle " + p.code + " · Green Lady";
+    $main.replaceChildren();
+    window.scrollTo(0, 0);
+
+    const top = card(), head = el("div", "head"), h = el("div");
+    add(h, el("h1", null, (blend ? vlabel(blend.vintage) + " · " : "") + "Blend " + blendLetter(p.blend)),
+        el("div", "sub", [p.n ? "Bottle " + p.n : null, "from " + (barrel ? vesselName(barrel) : p.barrel) + (barrel && barrel.size ? " (" + barrel.size + ")" : "")].filter(Boolean).join(" · ")));
+    add(head, h, el("span", "pill", p.code));
+    top.appendChild(head);
+    const grid = el("div", "stats");
+    if (blend) {
+      if (blend.juiced) stat(grid, "Juiced", fmtDate(blend.juiced), null, true);
+      stat(grid, "Yeast", blend.yeast, null, true);
+    }
+    if (run && run.bottled) stat(grid, "Bottled", fmtDate(run.bottled), ago(run.bottled), true);
+    if (run && run.filled && run.bottled) { const m = months(run.filled, run.bottled); if (m != null) stat(grid, "Time in barrel", m < 1.5 ? Math.round(m * 30.44) + " days" : m.toFixed(1) + " months"); }
+    if (blend && blend.gravity != null) stat(grid, "Starting gravity", sg(blend.gravity), blend.ph != null ? "pH " + blend.ph : null);
+    if (blend && blend.gravity != null && run && run.fg != null) stat(grid, "Strength", "≈ " + abv(blend.gravity, run.fg).toFixed(1) + "%", "ABV, from gravity " + sg(blend.gravity) + " → " + sg(run.fg));
+    if (grid.children.length) top.appendChild(grid);
+    if (!blend) top.appendChild(el("p", "muted", "No details for this blend yet."));
+    $main.appendChild(top);
+
+    $main.appendChild(rateCard(p));
+    add($main, applesCard(blend));
+    if (blend && blend.notes) $main.appendChild(add(card("About this blend"), el("p", "notes", blend.notes)));
+    if (run && (run.priming || run.note)) $main.appendChild(add(card("Bottling"), el("p", "notes", [run.priming ? "Priming: " + run.priming : "", run.note].filter(Boolean).join("\n"))));
+  }
+
+  function rateCard(p) {
+    const c = card("How was it?");
+    const key = "gl-rated-" + p.code;
+    const prev = store.get(key);
+    const agg = DB.ratings[p.run];
+    if (prev) {
+      c.appendChild(el("p", null, "Thanks – you rated this bottle " + (RATE.find(r => r[0] === prev) || ["", "", prev])[1] + " " + prev + "."));
+      c.appendChild(el("h3", null, "What everyone thought of this batch"));
+      c.appendChild(ratingBar(agg));
+      const again = el("button", null, "Change my rating"); again.type = "button"; again.style.marginTop = "12px";
+      again.addEventListener("click", () => { store.del(key); c.replaceWith(rateCard(p)); });
+      c.appendChild(again);
+      return c;
+    }
+    let choice = null;
+    const tags = new Set();
+    const row = el("div", "rate");
+    RATE.forEach(([k, e, label]) => {
+      const bt = el("button", k); bt.type = "button";
+      add(bt, el("span", "e", e), el("span", null, label));
+      bt.addEventListener("click", () => {
+        choice = k;
+        row.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === bt));
+        extra.hidden = false; send.disabled = false;
+      });
+      row.appendChild(bt);
+    });
+    c.appendChild(row);
+    const extra = el("div"); extra.hidden = true;
+    extra.appendChild(el("h3", null, "Anything stand out? (optional)"));
+    const chips = el("div", "chips");
+    TAGS.forEach(t => {
+      const ch = el("button", null, t); ch.type = "button";
+      ch.addEventListener("click", () => { tags.has(t) ? tags.delete(t) : tags.add(t); ch.classList.toggle("on"); });
+      chips.appendChild(ch);
+    });
+    extra.appendChild(chips);
+    const f = el("form");
+    const ln = el("label"); ln.appendChild(document.createTextNode("Your first name ")); ln.lastChild.after(el("small", null, "optional"));
+    const name = el("input"); name.value = store.get("gl-name") || ""; ln.appendChild(name);
+    const lc = el("label"); lc.appendChild(document.createTextNode("Comment ")); lc.lastChild.after(el("small", null, "optional, only the cider maker sees it"));
+    const comment = el("textarea"); lc.appendChild(comment);
+    const send = el("button", "primary full", "Send rating"); send.disabled = true;
+    const msg = el("div", "msg err"); msg.hidden = true;
+    add(f, ln, lc, send, msg);
+    extra.appendChild(f);
+    c.appendChild(extra);
+    if (agg && agg.n) { c.appendChild(el("h3", null, "So far")); c.appendChild(ratingBar(agg)); }
+
+    f.addEventListener("submit", async ev => {
+      ev.preventDefault();
+      if (!choice) return;
+      send.disabled = true; send.textContent = "Sending…";
+      try {
+        const r = await post({ kind: "rating", bottle: p.code, rating: choice, tags: [...tags].join(", "), name: name.value.trim(), comment: comment.value.trim() });
+        if (!r.ok) throw new Error(r.error);
+        store.set(key, choice);
+        if (name.value.trim()) store.set("gl-name", name.value.trim());
+        await load();
+        c.replaceWith(rateCard(p));
+      } catch (e) {
+        send.disabled = false; send.textContent = "Send rating";
+        msg.textContent = "Couldn't send – check your connection and try again."; msg.hidden = false;
+      }
+    });
+    return c;
+  }
+
+  // ----- blend page -----
+  function blendPage(id) {
+    const blend = DB.blends[id];
+    setVintage(blend.vintage);
+    document.title = "Blend " + id + " · Green Lady";
+    $main.replaceChildren();
+    window.scrollTo(0, 0);
+    const top = card(), head = el("div", "head");
+    add(head, el("h1", null, vlabel(blend.vintage) + " · Blend " + blendLetter(id)));
+    top.appendChild(head);
+    const grid = el("div", "stats"); blendStats(grid, blend); top.appendChild(grid);
+    $main.appendChild(top);
+    add($main, applesCard(blend));
+    if (blend.notes) $main.appendChild(add(card("Notes"), el("p", "notes", blend.notes)));
+    const c = card("Where it went"), list = el("div", "list");
+    DB.order.map(b => DB.barrels[b]).filter(b => b.current && b.current.blend === id).forEach(b => {
+      const a = el("a"); a.href = "#" + b.id;
+      const left = el("div"); add(left, el("div", "name", vesselName(b)), el("div", "sub", "In barrel · filled " + fmtDate(b.current.filled)));
+      add(a, left, el("span", "sub", "›")); list.appendChild(a);
+    });
+    Object.values(DB.runs).filter(r => r.blend === id && r.bottled).forEach(r => {
+      const a = el("a"); a.href = "#" + r.key;
+      const left = el("div"); add(left, el("div", "name", "Bottled from " + r.barrel), el("div", "sub", fmtDate(r.bottled) + (r.bottles ? " · " + r.bottles + " bottles" : "")));
+      add(a, left, el("span", "sub", "›")); list.appendChild(a);
+    });
+    if (!list.children.length) list.appendChild(el("div", "muted", "Not in any barrel yet."));
+    $main.appendChild(add(c, list));
+  }
+
+  // ----- league table -----
+  function league() {
+    setVintage(null);
+    document.title = "League table · Green Lady";
+    $main.replaceChildren();
+    window.scrollTo(0, 0);
+    const rated = Object.values(DB.runs).filter(r => DB.ratings[r.key] && DB.ratings[r.key].n)
+      .sort((a, b) => score(DB.ratings[b.key]) - score(DB.ratings[a.key]) || DB.ratings[b.key].n - DB.ratings[a.key].n);
+    const c = card("League table");
+    c.appendChild(el("p", "sub", "Each bottling run (one blend from one barrel), best rated first. Score: 👍 = 1, 👌 = ½, 👎 = 0."));
+    if (!rated.length) c.appendChild(el("p", "muted", "No bottles rated yet."));
+    const list = el("div", "list");
+    rated.forEach((r, i) => {
+      const a = el("a"); a.href = "#" + r.key;
+      const bl = DB.blends[r.blend], br = DB.barrels[r.barrel], agg = DB.ratings[r.key];
+      const left = el("div");
+      left.style.flex = "1";
+      const m = r.filled && r.bottled ? months(r.filled, r.bottled) : null;
+      add(left, el("div", "name", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(r.blend) + " · " + r.barrel),
+          el("div", "sub", [bl ? bl.apples.map(x => x.variety).join(", ") : null, bl && bl.yeast, br && br.size, m != null ? m.toFixed(1) + " months in barrel" : null].filter(Boolean).join(" · ")),
+          ratingBar(agg));
+      const right = el("div", "right"); right.appendChild(el("div", "score", Math.round(score(agg) * 100) + "%"));
+      add(a, el("span", "rank", String(i + 1)), left, right);
+      list.appendChild(a);
+    });
+    $main.appendChild(add(c, list));
+
+    // by blend
+    const byBlend = {};
+    rated.forEach(r => {
+      const a = DB.ratings[r.key], t = byBlend[r.blend] || (byBlend[r.blend] = { Good: 0, OK: 0, Poor: 0, n: 0, tags: {} });
+      ["Good", "OK", "Poor", "n"].forEach(k => t[k] += a[k]);
+      Object.entries(a.tags).forEach(([k, v]) => t.tags[k] = (t.tags[k] || 0) + v);
+    });
+    const bk = Object.keys(byBlend).sort((a, b) => score(byBlend[b]) - score(byBlend[a]));
+    if (bk.length > 1) {
+      const c2 = card("By blend"), l2 = el("div", "list");
+      bk.forEach(id => {
+        const a = el("a"); a.href = "#blend/" + id;
+        const left = el("div"); left.style.flex = "1";
+        add(left, el("div", "name", "Blend " + id), ratingBar(byBlend[id]));
+        const right = el("div", "right"); right.appendChild(el("div", "score", Math.round(score(byBlend[id]) * 100) + "%"));
+        add(a, left, right); l2.appendChild(a);
+      });
+      $main.appendChild(add(c2, l2));
+    }
+  }
+
+  // ----- printable labels -----
+  let qrLoading = null;
+  function loadQR() {
+    if (window.qrcode) return Promise.resolve();
+    return qrLoading || (qrLoading = new Promise((ok, bad) => { const s = document.createElement("script"); s.src = QR_LIB; s.onload = ok; s.onerror = bad; document.head.appendChild(s); }));
+  }
+  function qrSvg(text) {
+    const q = window.qrcode(0, "M"); q.addData(text); q.make();
+    const tmp = document.createElement("div"); tmp.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    return tmp.firstChild;
+  }
+  async function labels(arg) {
+    setVintage(null);
+    document.title = "Labels · Green Lady";
+    $main.replaceChildren(add(card(), el("div", "empty", "Making labels…")));
+    try { await loadQR(); } catch (e) { $main.replaceChildren(add(card(), el("div", "msg err", "Couldn't load the QR maker. Check the connection."))); return; }
+    $main.replaceChildren();
+    const ctl = card(arg === "barrels" ? "Barrel QR stickers" : "Bottle labels");
+    ctl.classList.add("noprint");
+    ctl.appendChild(el("p", "sub", "Sized for A4 sheets of 21 labels (63.5 × 38.1 mm, e.g. Avery L7160). Print at 100% / actual size."));
+    const sheetWrap = el("div", "sheetwrap");
+    let items = [];
+    if (arg === "barrels") {
+      items = DB.order.map(id => ({ url: SITE + "#" + id, big: id, t3: [DB.barrels[id].size, "Green Lady"].filter(Boolean).join(" · ") }));
+    } else {
+      const m = /^([^/]+)\/(\d+)(?:\/(\d+))?$/.exec(arg), p = m && parseCode(m[1]);
+      if (!p) { home("Label link not recognised."); return; }
+      const count = Math.min(500, parseInt(m[2], 10) || 24), start = parseInt(m[3] || "1", 10) || 1;
+      const bl = DB.blends[p.blend];
+      const f = el("form", "two"); f.style.marginTop = "0";
+      const l1 = el("label"); l1.appendChild(document.createTextNode("How many")); const i1 = el("input"); i1.inputMode = "numeric"; i1.value = count; l1.appendChild(i1);
+      const l2 = el("label"); l2.appendChild(document.createTextNode("First number")); const i2 = el("input"); i2.inputMode = "numeric"; i2.value = start; l2.appendChild(i2);
+      add(f, l1, l2);
+      const upd = () => { location.hash = "labels/" + p.run + "/" + (parseInt(i1.value, 10) || 1) + "/" + (parseInt(i2.value, 10) || 1); };
+      i1.addEventListener("change", upd); i2.addEventListener("change", upd);
+      f.addEventListener("submit", e => { e.preventDefault(); upd(); });
+      ctl.appendChild(f);
+      for (let n = start; n < start + count; n++) {
+        const code = p.run + "-" + String(n).padStart(3, "0");
+        items.push({ url: SITE + "#" + code, t1: vlabel(bl ? bl.vintage : null), t2: "Blend " + blendLetter(p.blend) + " · " + p.barrel + " · No. " + String(n).padStart(3, "0"), t3: "Scan me & rate me" });
+      }
+    }
+    const pr = el("button", "primary full", "Print"); pr.type = "button"; pr.style.marginTop = "12px";
+    pr.addEventListener("click", () => window.print());
+    ctl.appendChild(pr);
+    $main.appendChild(ctl);
+    const sheet = el("div", "sheet");
+    items.forEach(it => {
+      const lab = el("div", "lab"), txt = el("div");
+      lab.appendChild(qrSvg(it.url));
+      if (it.big) add(txt, el("div", "big", it.big), el("div", "t3", it.t3));
+      else add(txt, el("div", "t1", it.t1), el("div", "t2", it.t2), el("div", "t3", it.t3));
+      lab.appendChild(txt);
+      sheet.appendChild(lab);
+    });
+    $main.appendChild(add(sheetWrap, sheet));
+  }
+
+  // ---------- routing ----------
   function route() {
     const raw = decodeURIComponent(location.hash.slice(1)).trim();
-    if (!raw) return showList("Barrels", null);
-    if (raw.startsWith("batch:")) {
-      const k = raw.slice(6);
-      if (BATCHES[k]) return showBarrel({ name: "Previous fill", batch: k, history: [] });
-    }
-    const id = raw.toUpperCase();
-    if (BARRELS[id]) return showBarrel(BARRELS[id]);
-    showList("Barrels", "This tag (" + raw + ") isn't linked to a barrel yet.");
+    const up = raw.toUpperCase();
+    if (!raw) return home();
+    if (up === "LEAGUE") return league();
+    if (/^labels\//i.test(raw)) return labels(raw.slice(7));
+    if (/^blend\//i.test(raw)) { const id = up.slice(6); if (DB.blends[id]) return blendPage(id); }
+    if (DB.barrels[up]) return barrelPage(DB.barrels[up]);
+    const p = parseCode(up);
+    if (p) return bottlePage(p);
+    if (DB.blends[up]) return blendPage(up);
+    home("This tag (" + raw + ") isn't linked to a barrel or bottle yet.");
   }
+
   window.addEventListener("hashchange", route);
-  route();
+  load().then(route).catch(() => {
+    $main.replaceChildren(add(card(), el("div", "msg err", "Couldn't reach the cider records. Check your connection and refresh.")));
+  });
 })();
 </script>
 </body>

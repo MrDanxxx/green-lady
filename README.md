@@ -1,6 +1,9 @@
-# Green Lady cider - barrel tags
+# Green Lady cider - barrel and bottle tags
 
-Each barrel has an NFC tag holding one link: `https://mrdanxxx.github.io/green-lady/#B1`.
-Scanning it opens that barrel's current fill: apples and where they grew, starting gravity and pH, yeast, juicing date, readings.
+Records live in a Google Sheet (tabs Barrels, Blends, Log, Ratings) served by the Apps Script web app in `apps-script/Code.gs`. The page reads and writes through it.
 
-Edit `data.js` to update. New vintage each autumn: add a batch (e.g. `GL27-1`), move the old batch ID into the barrel's `history`, point `batch` at the new one. The tag never needs rewriting.
+- `#B07` - barrel page (NFC tag + QR sticker on the barrel). Crew buttons: Fill, + Reading, Bottled, Moved, Note, Emptied (crew PIN).
+- `#26A-B07-031` - bottle page: the story of the bottle + 👍 / 👌 / 👎 rating (no PIN).
+- `#blend/26A`, `#league`, `#labels/26A-B07/23` (bottle QR labels, A4 21-up), `#labels/barrels`.
+
+Tag writer: `python tools/write_tag.py B07` (never locks tags).
