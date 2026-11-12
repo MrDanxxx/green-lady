@@ -55,6 +55,13 @@ header .vintage { font-family: Fraunces, Georgia, serif; font-size: 18px; color:
 main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
 .card h2 { font-family: Fraunces, Georgia, serif; font-size: 20px; margin: 0 0 12px; color: var(--green); font-weight: 600; }
+.lbl { display: grid; gap: 6px; }
+.lbl-t { font-size: 14px; font-weight: 600; }
+.picks { display: grid; gap: 8px; }
+.pick { display: grid; gap: 2px; text-align: left; padding: 10px 12px; background: var(--input); border: 1px solid var(--line); border-radius: 10px; font-weight: 400; }
+.pick-id { font-weight: 700; font-size: 15px; }
+.pick-sub { font-size: 13px; color: var(--muted); line-height: 1.35; }
+.pick.on { border: 2px solid var(--btn); background: var(--pill); padding: 9px 11px; }
 .confirm { margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 10px; }
 .confirm p { margin: 0; font-weight: 600; text-align: center; }
 button.danger-solid { background: var(--poor); border-color: var(--poor); color: #fff; }
@@ -990,21 +997,22 @@ footer a { color: inherit; }
   function fillForm(b) {
     const cur = b.current;
     const f = formCard((cur ? "Edit fill · " : "Fill ") + vesselName(b), "barrels");
-    const blend = el("select");
-    if (!cur) {   // new fill: start blank with a pale prompt
-      const p0 = el("option", null, Object.keys(DB.blends).length ? "Choose a blend…" : "No blends yet");
-      p0.value = ""; p0.disabled = true; p0.selected = true; blend.appendChild(p0);
-      blend.classList.add("unset");
-      blend.addEventListener("change", () => blend.classList.toggle("unset", !blend.value));
-    }
-    Object.keys(DB.blends).sort().reverse().forEach(id => {
-      const o = el("option", null, id + " · " + DB.blends[id].apples.map(x => x.variety).join(", "));
-      o.value = id; blend.appendChild(o);
+    // Blend chooser: tappable cards (a phone's own drop-down text can't be sized by the page).
+    const blend = el("div", "picks"), ids = Object.keys(DB.blends).sort().reverse();
+    if (cur && cur.blend && !DB.blends[cur.blend]) ids.unshift(cur.blend);
+    blend.value = cur ? cur.blend : "";
+    ids.forEach(id => {
+      const bl = DB.blends[id], bt = el("button", "pick"); bt.type = "button";
+      add(bt, el("span", "pick-id", "Blend " + id), bl ? el("span", "pick-sub", bl.apples.map(x => x.variety + (x.share ? " " + x.share : "")).join(", ")) : null);
+      bt.classList.toggle("on", id === blend.value);
+      bt.addEventListener("click", () => {
+        blend.value = id;
+        blend.querySelectorAll(".pick").forEach(x => x.classList.toggle("on", x === bt));
+        blend.dispatchEvent(new Event("change"));
+      });
+      blend.appendChild(bt);
     });
-    if (cur) {
-      if (cur.blend && !DB.blends[cur.blend]) { const o = el("option", null, cur.blend); o.value = cur.blend; blend.insertBefore(o, blend.firstChild); }
-      blend.value = cur.blend;
-    }
+    if (!ids.length) blend.appendChild(el("p", "muted", "No blends yet."));
     const filled = input(cur ? (cur.filled || isoToday()) : isoToday(), { type: "date" });
     const yeast = input(cur ? (cur.fillYeast || "") : "", { placeholder: "e.g. SafCider TF-6" });
     suggest(yeast, "dl-yeasts", knownYeasts());
@@ -1012,7 +1020,8 @@ footer a { color: inherit; }
       yeast.addEventListener("input", () => { yeast.dataset.typed = "1"; });
       blend.addEventListener("change", () => { const bl = DB.blends[blend.value]; if (bl && bl.yeast && !yeast.dataset.typed) yeast.value = bl.yeast; });
     }
-    add(f, field("Which blend?", blend), field("Date filled", filled), field("Yeast", yeast));
+    const bl0 = el("div", "lbl"); add(bl0, el("div", "lbl-t", "Which blend?"), blend);
+    add(f, bl0, field("Date filled", filled), field("Yeast", yeast));
     const auth = pinFields(f);
     const { save, show } = formEnd(f, cur ? "Save changes" : "Fill this barrel", "#" + b.id);
 
