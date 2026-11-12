@@ -92,6 +92,7 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 button, .button { font: inherit; font-weight: 600; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 12px; cursor: pointer; text-align: center; text-decoration: none; display: inline-block; }
 button.primary, .button.primary { background: var(--btn); border-color: var(--btn); color: #fff; }
+.button.soft, button.soft { background: var(--pill); border-color: color-mix(in srgb, var(--btn) 35%, transparent); color: var(--green); }
 button:disabled { opacity: .5; cursor: default; }
 .full { width: 100%; }
 button.small, .button.small { padding: 6px 14px; font-size: 14px; flex: none; }
@@ -795,7 +796,7 @@ footer a { color: inherit; }
   function formEnd(f, saveText, cancelHref) {
     const msg = el("div", "msg err"); msg.hidden = true;
     const save = el("button", "primary full", saveText);
-    const cancel = el("a", "button primary full", "Cancel"); cancel.href = cancelHref;
+    const cancel = el("a", "button soft full", "Cancel"); cancel.href = cancelHref;
     add(f, save, msg, cancel);
     return { save, show: t => { msg.textContent = t; msg.hidden = false; } };
   }
