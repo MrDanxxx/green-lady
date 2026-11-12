@@ -1007,7 +1007,6 @@ footer a { color: inherit; }
       if (!r.ok) return show("Wrong PIN number.");
       store.set("gl-pin", pin.value.trim());
       if (by.value.trim()) store.set("gl-name", by.value.trim());
-      FLASH = { text: "Signed in. You can now make changes." };
       const to = back || "barrels";
       if (decodeURIComponent(location.hash.slice(1)) === to) route(); else location.hash = to;
     });
