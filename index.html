@@ -353,10 +353,10 @@ footer a { color: inherit; }
     });
     return add(c, ul);
   }
-  function readingsCard(events, title) {
+  function notesTable(events) {
     const rows = (events || []).filter(e => e.gravity != null || e.ph != null || e.note || e.action === "Moved");
     if (!rows.length) return null;
-    const c = card(title || "Readings"), t = el("table"), hr = el("tr");
+    const t = el("table"), hr = el("tr");
     ["Date", "Gravity", "pH", "Notes"].forEach(x => hr.appendChild(el("th", null, x)));
     t.appendChild(hr);
     rows.forEach(r => {
@@ -367,7 +367,7 @@ footer a { color: inherit; }
           el("td", "num", r.ph != null ? String(r.ph) : "–"), el("td", null, [note, r.by ? "(" + r.by + ")" : ""].filter(Boolean).join(" ")));
       t.appendChild(tr);
     });
-    return add(c, t);
+    return t;
   }
   function ratingBar(a) {
     const wrap = el("div");
@@ -557,7 +557,6 @@ footer a { color: inherit; }
 
     if (cur) {
       add($main, applesCard(blend), yeastCard(cur.yeasts, blend && blend.yeast));
-      add($main, readingsCard(cur.events, "Readings & notes"));
     }
     $main.appendChild(actionCard(b));
 
@@ -607,11 +606,21 @@ footer a { color: inherit; }
     ed.href = "#" + b.id + "/edit"; ed.style.marginTop = "10px";
     if (!b.current) { btns.style.gridTemplateColumns = "1fr"; return add(card(), btns, ed, slot); }
 
-    const c = card("Add a note");
-    const f = actionForm(b, "Note", true);
+    // Full barrel: the Notes card, with a + Note button that opens the note box.
+    const c = card("Notes");
+    c.appendChild(notesTable(b.current.events) || el("p", "muted", "No notes yet."));
+    const nb = el("button", "primary full", "+ Note"), noteSlot = el("div");
+    nb.type = "button"; nb.style.marginTop = "12px";
+    nb.addEventListener("click", () => {
+      nb.hidden = true;
+      const f = actionForm(b, "Note", true);
+      f.style.marginTop = "12px";
+      noteSlot.replaceChildren(f);
+      const ta = f.querySelector("textarea"); if (ta) ta.focus();
+    });
     const more = el("details", "more"), sum = el("summary", null, "More: reading, yeast, bottled, emptied");
     add(more, sum, btns, ed, slot);
-    return add(c, f, more);
+    return add(c, nb, noteSlot, more);
   }
 
   function actionForm(b, action, bare) {
