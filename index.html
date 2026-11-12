@@ -120,6 +120,8 @@ label small { font-weight: 400; color: var(--muted); }
 input, select, textarea { font: inherit; font-weight: 400; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--input); color: var(--ink); width: 100%; }
 textarea { min-height: 70px; resize: vertical; }
 ::placeholder { color: var(--muted); opacity: .5; font-style: italic; }
+select.unset { color: color-mix(in srgb, var(--muted) 50%, transparent); font-style: italic; }
+select.unset option { color: var(--ink); font-style: normal; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .msg { padding: 10px 12px; border-radius: 8px; font-size: 14px; }
 .msg.ok { background: var(--pill); color: var(--green); }
@@ -648,11 +650,15 @@ footer a { color: inherit; }
       let inp;
       if (kind === "blend") {
         inp = el("select");
+        // Starts blank with a pale prompt, so it doesn't look already chosen.
+        const p0 = el("option", null, "Choose a blend…"); p0.value = ""; p0.disabled = true; p0.selected = true; inp.appendChild(p0);
+        inp.classList.add("unset");
+        inp.addEventListener("change", () => inp.classList.toggle("unset", !inp.value));
         Object.keys(DB.blends).sort().reverse().forEach(id => {
           const o = el("option", null, id + " · " + DB.blends[id].apples.map(x => x.variety).join(", "));
           o.value = id; inp.appendChild(o);
         });
-        if (!inp.options.length) { const o = el("option", null, "No blends in the Sheet yet"); o.value = ""; inp.appendChild(o); }
+        if (inp.options.length === 1) p0.textContent = "No blends yet";
       } else if (kind === "text") {
         inp = el("textarea");
       } else {
@@ -710,7 +716,7 @@ footer a { color: inherit; }
       const body = { kind: "log", action: action === "Yeast" ? "Note" : action, barrel: b.id };
       Object.keys(inputs).forEach(k => body[k] = inputs[k].value.trim());
       if (action === "Yeast" && !body.yeast) return show("Which yeast?");
-      if (action === "Fill" && !body.blend) return show("Create the blend first: Blends tab → + New blend.");
+      if (action === "Fill" && !body.blend) return show(Object.keys(DB.blends).length ? "Choose a blend." : "Create the blend first: Blends tab → + New blend.");
       if (action === "Bottled") body.blend = b.current ? b.current.blend : "";
       if (body.gravity) body.gravity = gravityVal(body.gravity);
       for (const k of ["gravity", "ph", "bottles"]) {
