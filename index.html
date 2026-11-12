@@ -1251,7 +1251,7 @@ footer a { color: inherit; }
   }
 
   // ----- league table -----
-  // League tab: Blend rating -> Bottle rating (with Back).
+  // League tab: Blend rating -> Barrel rating -> Bottle rating, with Back at each step.
   function league(level) {
     level = level || "blends";
     setVintage(null);
@@ -1260,9 +1260,9 @@ footer a { color: inherit; }
     $main.replaceChildren();
     window.scrollTo(0, 0);
     const LV = {
-      blends:  { title: "Blend rating",  sub: "Each blend, all its barrels and bottles together, best rated first.", next: ["Bottle rating ›", "#league/bottles"] },
+      blends:  { title: "Blend rating",  sub: "Each blend, all its barrels and bottles together, best rated first.", next: ["Barrel rating ›", "#league/barrels"] },
       barrels: { title: "Barrel rating", sub: "Each bottling run (one blend from one barrel), best rated first.", back: "#league", next: ["Bottle rating ›", "#league/bottles"] },
-      bottles: { title: "Bottle rating", sub: "Each numbered bottle, best rated first.", back: "#league" },
+      bottles: { title: "Bottle rating", sub: "Each numbered bottle, best rated first.", back: "#league/barrels" },
     }[level];
     if (LV.back) {
       const back = el("a", "button soft small", "‹ Back"); back.href = LV.back; back.style.marginBottom = "12px";
@@ -1388,7 +1388,7 @@ footer a { color: inherit; }
     else if (up === "BLENDS/NEW") blendForm(null);
     else if (up === "BOTTLES") bottlesTab();
     else if (up === "LEAGUE") league();
-    else if (up === "LEAGUE/BARRELS") league();   // Barrel rating no longer shown
+    else if (up === "LEAGUE/BARRELS") league("barrels");
     else if (up === "LEAGUE/BOTTLES") league("bottles");
     else if (/^labels\//i.test(raw)) { FLASH = null; return labels(raw.slice(7)); }
     else if ((m = /^BLEND\/([^/]+)\/EDIT$/.exec(up)) && DB.blends[m[1]]) blendForm(DB.blends[m[1]]);
