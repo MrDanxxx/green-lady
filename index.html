@@ -914,10 +914,10 @@ footer a { color: inherit; }
     const back = el("a", "button soft small", "‹ Back"); back.href = "#" + p.barrel; back.style.marginBottom = "12px";
     $main.insertBefore(back, $main.firstChild);
     f.appendChild(el("p", "sub", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(p.blend) + " from " + (b ? vesselName(b) : p.barrel) +
-      (r && r.bottled ? " · bottled " + fmtDate(r.bottled) : "") + ". Each label gets its own number and QR code for rating."));
+      (r && r.bottled ? " · bottled " + fmtDate(r.bottled) : "") + ". Each label gets its own number and QR code for rating. If you're carrying on from earlier labels, change the first number."));
     const cnt = input(String(count || (r && r.bottles) || ""), { inputMode: "numeric", placeholder: "e.g. 23" });
     const first = input("1", { inputMode: "numeric" });
-    add(f, add(el("div", "two"), field("How many labels?", cnt), field("First number", first, "Change if carrying on from earlier labels")));
+    add(f, add(el("div", "two"), field("How many labels?", cnt), field("First number", first)));
     const msg = el("div", "msg err"); msg.hidden = true;
     const mk = el("button", "primary full", "Make labels");
     const done = el("a", "button soft full", "Done – no labels now"); done.href = "#" + p.barrel;
