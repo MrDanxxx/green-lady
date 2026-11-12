@@ -795,7 +795,7 @@ footer a { color: inherit; }
   function formEnd(f, saveText, cancelHref) {
     const msg = el("div", "msg err"); msg.hidden = true;
     const save = el("button", "primary full", saveText);
-    const cancel = el("a", "button full", "Cancel"); cancel.href = cancelHref;
+    const cancel = el("a", "button primary full", "Cancel"); cancel.href = cancelHref;
     add(f, save, msg, cancel);
     return { save, show: t => { msg.textContent = t; msg.hidden = false; } };
   }
