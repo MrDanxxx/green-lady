@@ -54,6 +54,9 @@ header .vintage { font-family: Fraunces, Georgia, serif; font-size: 18px; color:
 main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
 .card h2 { font-family: Fraunces, Georgia, serif; font-size: 20px; margin: 0 0 12px; color: var(--green); font-weight: 600; }
+.confirm { margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.confirm p { margin: 0 0 10px; font-weight: 600; text-align: center; }
+button.danger-solid { background: var(--poor); border-color: var(--poor); color: #fff; }
 button.danger { color: var(--poor); border-color: color-mix(in srgb, var(--poor) 45%, transparent); background: transparent; }
 .cardhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
 .cardhead h2 { margin: 0; }
@@ -835,14 +838,19 @@ footer a { color: inherit; }
       const del = el("button", "danger full", "Delete barrel");
       del.type = "button"; del.style.marginTop = "8px";
       f.appendChild(del);
-      del.addEventListener("click", async () => {
-        const full = !!b.current;
-        if (!confirm(full ? vesselName(b) + " still has blend " + b.current.blend + " in it. Delete it anyway? The cider in it will be recorded as emptied."
-                          : "Delete " + vesselName(b) + "?")) return;
+      // In-page "are you sure?" instead of a browser pop-up.
+      const ask = el("div", "confirm"); ask.hidden = true;
+      const yes = el("button", "danger-solid", "Yes, delete"), no = el("button", "soft", "No");
+      yes.type = no.type = "button";
+      add(ask, el("p", null, "Delete barrel – are you sure?"), add(el("div", "btns"), yes, no));
+      f.appendChild(ask);
+      del.addEventListener("click", () => { del.hidden = true; ask.hidden = false; });
+      no.addEventListener("click", () => { ask.hidden = true; del.hidden = false; });
+      yes.addEventListener("click", async () => {
         // A full barrel is emptied first, so its cider doesn't come back if the number is re-used.
-        if (full && !await pinPost({ kind: "log", action: "Empty", barrel: b.id, blend: b.current.blend, note: "Barrel deleted" }, auth, del, show)) return;
-        if (!await pinPost({ kind: "barrel", remove: true, barrel: b.id }, auth, del, show)) return;
-        FLASH = { text: "Deleted " + b.id + "." };
+        if (b.current && !await pinPost({ kind: "log", action: "Empty", barrel: b.id, blend: b.current.blend, note: "Barrel deleted" }, auth, yes, show)) return;
+        if (!await pinPost({ kind: "barrel", remove: true, barrel: b.id }, auth, yes, show)) return;
+        FLASH = { text: vesselName(b) + " deleted." };
         location.hash = "barrels";
       });
     }
