@@ -864,13 +864,12 @@ footer a { color: inherit; }
       del.type = "button"; del.style.marginTop = "8px";
       f.appendChild(del);
       // In-page "are you sure?" instead of a browser pop-up.
-      const ask = el("div", "confirm"); ask.hidden = true;
+      const ask = el("div", "confirm");   // only put on the page when Delete barrel is tapped
       const yes = el("button", "danger-solid", "Yes, delete"), no = el("button", "soft", "No");
       yes.type = no.type = "button";
       add(ask, el("p", null, "Delete barrel – are you sure?"), add(el("div", "btns"), yes, no));
-      f.appendChild(ask);
-      del.addEventListener("click", () => { del.hidden = true; ask.hidden = false; });
-      no.addEventListener("click", () => { ask.hidden = true; del.hidden = false; });
+      del.addEventListener("click", () => { del.replaceWith(ask); });
+      no.addEventListener("click", () => { ask.replaceWith(del); });
       yes.addEventListener("click", async () => {
         // A full barrel is emptied first, so its cider doesn't come back if the number is re-used.
         if (b.current && !await pinPost({ kind: "log", action: "Empty", barrel: b.id, blend: b.current.blend, note: "Barrel deleted" }, auth, yes, show)) return;
