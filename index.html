@@ -52,6 +52,12 @@ header .kicker { font-size: 12px; letter-spacing: .25em; text-transform: upperca
 header .mark { font-family: Fraunces, Georgia, serif; font-weight: 800; font-size: clamp(28px, 8.4vw, 56px); line-height: 1; margin: 0 0 8px; display: flex; align-items: center; justify-content: center; gap: 12px; }
 header .mark svg { width: .8em; height: .8em; flex: none; }
 header .vintage { font-family: Fraunces, Georgia, serif; font-size: 18px; color: var(--gold); letter-spacing: .1em; min-height: 1.4em; }
+/* slim header on every page except the Barrels list: kicker and vintage share one line */
+body.slim header { padding: 10px 16px 9px; }
+body.slim header .mark { font-size: clamp(22px, 6vw, 32px); margin-bottom: 4px; gap: 8px; }
+body.slim header a > .kicker, body.slim header a > .vintage { display: inline; font-size: 11px; min-height: 0; }
+body.slim header .vintage { font-family: inherit; letter-spacing: .25em; }
+body.slim header .vintage:not(:empty)::before { content: " · "; color: #cfdcc3; }
 main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
 .card h2 { font-family: Fraunces, Georgia, serif; font-size: 20px; margin: 0 0 12px; color: var(--green); font-weight: 600; }
@@ -484,6 +490,7 @@ footer a { color: inherit; }
     DB.order.forEach(id => { const b = DB.barrels[id]; (groups[b.location || "Unknown"] ||= []).push(b); });
     Object.keys(groups).forEach(loc => {
       const c = card(loc), list = el("div", "list");
+      groups[loc].sort((x, y) => (x.current ? 0 : 1) - (y.current ? 0 : 1));   // full first, empty at the bottom (sort keeps the order otherwise)
       groups[loc].forEach(b => {
         const a = el("a"); a.href = "#" + b.id;
         const left = el("div");
@@ -649,19 +656,19 @@ footer a { color: inherit; }
     if (!done.length) $main.appendChild(add(card("Reprint bottle labels"), el("p", "muted", "Nothing bottled yet.")));
     if (done.length) {
       const c2 = card("Reprint bottle labels"), rf = el("form"); rf.style.marginTop = "0";
-      const sel = el("select");
-      done.forEach(r => {
-        const o = el("option", null, "Blend " + r.blend + " · " + r.barrel + " · bottled " + fmtDate(r.bottled) + (r.bottles ? " · " + r.bottles + " bottles" : ""));
-        o.value = r.key; sel.appendChild(o);
-      });
+      const items = done.map(r => ({ value: r.key, main: "Blend " + r.blend + " · " + (DB.barrels[r.barrel] ? vesselName(DB.barrels[r.barrel]) : r.barrel),
+        sub: "Bottled " + fmtDate(r.bottled) + (r.bottles ? " · " + r.bottles + " bottles" : "") }));
+      const sel = pickBox("Choose a batch…", items, () => { rmsg.hidden = true; });
       // needs the PIN number (checked with the Sheet) - the whole batch is reprinted
       const pin = input(store.get("gl-pin") || "", { type: "password", inputMode: "numeric" });
       const go = el("button", "primary full", "Reprint labels");
       const rmsg = el("div", "msg err"); rmsg.hidden = true;
-      add(rf, field("Which batch?", sel), field("PIN NUMBER", pin), go, rmsg);
+      const bl0 = el("div", "lbl"); add(bl0, el("div", "lbl-t", "Which batch?"), sel);
+      add(rf, bl0, field("PIN NUMBER", pin), go, rmsg);
       rf.addEventListener("submit", async ev => {
         ev.preventDefault();
         const show = t => { rmsg.textContent = t; rmsg.hidden = false; };
+        if (!sel.value) return show("Choose which batch to reprint.");
         if (!pin.value.trim()) return show("Enter the PIN number.");
         go.disabled = true; go.textContent = "Checking…";
         let r;
@@ -999,8 +1006,6 @@ footer a { color: inherit; }
   function bottleForm(b) {
     const cur = b.current, blend = DB.blends[cur.blend], run = cur.blend + "-" + b.id;
     const f = formCard("Bottle " + vesselName(b), "barrels");
-    const back = el("a", "button soft small", "‹ Back"); back.href = "#" + b.id; back.style.marginBottom = "12px";
-    $main.insertBefore(back, $main.firstChild);
 
     // what's in the barrel (under the page heading)
     const grid = el("div", "stats");
@@ -1044,15 +1049,13 @@ footer a { color: inherit; }
   function printPage(run, count) {
     const p = parseCode(run), b = DB.barrels[p.barrel], r = DB.runs[run], bl = DB.blends[p.blend];
     const f = formCard("Print bottle labels", "barrels");
-    const back = el("a", "button soft small", "‹ Back"); back.href = count ? "#" + p.barrel : "#bottles/reprint"; back.style.marginBottom = "12px";
-    $main.insertBefore(back, $main.firstChild);
     f.appendChild(el("p", "sub", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(p.blend) + " from " + (b ? vesselName(b) : p.barrel) +
       (r && r.bottled ? " · bottled " + fmtDate(r.bottled) : "") + ". Each label gets its own number (from 1) and QR code for rating."));
     const cnt = input(String(count || (r && r.bottles) || ""), { inputMode: "numeric", placeholder: "e.g. 23" });
     add(f, field("How many labels?", cnt));
     const msg = el("div", "msg err"); msg.hidden = true;
     const mk = el("button", "primary full", "Make labels");
-    const done = el("a", "button soft full", "Done – no labels now"); done.href = "#barrels";
+    const done = el("a", "button soft full", count ? "Done – no labels now" : "Cancel"); done.href = count ? "#barrels" : "#bottles/reprint";
     add(f, mk, msg, done);
     f.addEventListener("submit", ev => {
       ev.preventDefault();
@@ -1067,8 +1070,6 @@ footer a { color: inherit; }
   function emptyForm(b) {
     const cur = b.current, blend = DB.blends[cur.blend];
     const f = formCard("Empty " + vesselName(b), "barrels");
-    const back = el("a", "button soft small", "‹ Back"); back.href = "#" + b.id; back.style.marginBottom = "12px";
-    $main.insertBefore(back, $main.firstChild);
     const grid = el("div", "stats");
     grid.style.margin = "0 0 6px";
     stat(grid, "Blend", cur.blend, blend ? blend.apples.map(x => x.variety).join(", ") : null, true);
@@ -1344,6 +1345,14 @@ footer a { color: inherit; }
   function rateCard(p) {
     const c = card("How was it?");
     // Ratings are per bottle: on a batch page (no bottle number) ask for the number on the label first.
+    const runN = DB.runs[p.run] && Number(DB.runs[p.run].bottles);
+    if (!p.n && runN) {   // pick the number on the label from a grid, as on Find my bottle
+      c.appendChild(el("p", "sub", "Each bottle is rated on its own. Choose the number on your bottle's label."));
+      const items = Array.from({ length: Math.min(runN, 99) }, (_, i) => { const n = String(i + 1).padStart(2, "0"); return { value: n, main: n }; });
+      const l = el("div", "lbl"); l.style.marginTop = "10px";
+      add(l, el("div", "lbl-t", "Bottle"), pickBox("Choose the number on your label…", items, n => { location.hash = p.run + "-" + n; }, true));
+      return add(c, l);
+    }
     if (!p.n) {
       c.appendChild(el("p", "sub", "Each bottle is rated on its own. Type the number from the bottle's label."));
       const f = el("form", "codebox"); f.style.marginTop = "10px";
@@ -1676,6 +1685,7 @@ footer a { color: inherit; }
     window.scrollTo(0, 0);
     const raw = decodeURIComponent(location.hash.slice(1)).trim();
     const up = raw.toUpperCase();
+    document.body.classList.toggle("slim", !(!raw || up === "BARRELS"));   // full header only on the Barrels list
     let m;
     if (!raw || up === "BARRELS") barrelsTab();
     else if (up === "BARRELS/NEW") barrelForm(null);
