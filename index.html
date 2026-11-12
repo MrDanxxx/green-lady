@@ -555,6 +555,9 @@ footer a { color: inherit; }
       }
       top.appendChild(grid);
       if (!blend) top.appendChild(el("p", "muted", "Blend " + cur.blend + " isn't in the Blends tab yet."));
+      const ef = el("a", "button full", "Edit fill details");
+      ef.href = "#" + b.id + "/fill"; ef.style.marginTop = "12px";
+      top.appendChild(ef);
     } else top.appendChild(el("p", "muted", "Nothing in this " + (/^D/.test(b.id) ? "demijohn" : "barrel") + " at the moment."));
     $main.appendChild(top);
 
@@ -562,8 +565,8 @@ footer a { color: inherit; }
       add($main, applesCard(blend), yeastCard(cur.yeasts, blend && blend.yeast));
     }
     $main.appendChild(actionCard(b));
-
     if (b.notes) $main.appendChild(add(card("Barrel notes"), el("p", "notes", b.notes)));
+    if (cur) $main.appendChild(finishCard(b));
   }
 
   // ----- barrel actions -----
@@ -576,22 +579,19 @@ footer a { color: inherit; }
     Note:    [["note", "Note", "text"]],
     Empty:   [["note", "Why? (racked, spoiled…)", "text"]],
   };
-  const LABEL = { Fill: "Fill this barrel", Reading: "+ Reading", Bottled: "Bottled", Moved: "Moved", Note: "+ Note", Empty: "Emptied", Yeast: "+ Yeast" };
+  const LABEL = { Fill: "Fill this barrel", Reading: "+ Reading", Bottled: "Bottle it", Moved: "Moved", Note: "+ Note", Empty: "Empty it", Yeast: "+ Yeast" };
 
-  // Full barrel: just a notes box, with the other actions tucked under "More".
-  // Empty barrel: Fill + Edit barrel details. Full barrel: Edit fill details.
+  // Empty barrel: Fill + Edit barrel details.
+  // Full barrel: the Notes card (+ Note); Bottle it / Empty it sit in their own card at the bottom (finishCard).
   function actionCard(b) {
-    const btns = el("div", "btns"), slot = el("div");
-    const actions = b.current ? ["Reading", "Yeast", "Bottled", "Empty"] : ["Fill"];
-    actions.forEach((a, i) => {
-      const bt = el("button", !b.current && i === 0 ? "primary" : null, LABEL[a]);
-      bt.type = "button";
-      bt.addEventListener("click", () => { slot.replaceChildren(actionForm(b, a)); });
-      btns.appendChild(bt);
-    });
-    const ed = el("a", "button full", b.current ? "Edit fill details" : "Edit barrel details");
-    ed.href = "#" + b.id + (b.current ? "/fill" : "/edit"); ed.style.marginTop = "10px";
-    if (!b.current) { btns.style.gridTemplateColumns = "1fr"; return add(card(), btns, ed, slot); }
+    if (!b.current) {
+      const slot = el("div"), fb = el("button", "primary full", LABEL.Fill);
+      fb.type = "button";
+      fb.addEventListener("click", () => { slot.replaceChildren(actionForm(b, "Fill")); });
+      const ed = el("a", "button full", "Edit barrel details");
+      ed.href = "#" + b.id + "/edit"; ed.style.marginTop = "10px";
+      return add(card(), fb, ed, slot);
+    }
 
     // Full barrel: the Notes card, with a + Note button that opens the note box.
     const c = card("Notes");
@@ -605,9 +605,17 @@ footer a { color: inherit; }
       noteSlot.replaceChildren(f);
       const ta = f.querySelector("textarea"); if (ta) ta.focus();
     });
-    const more = el("details", "more"), sum = el("summary", null, "More: reading, yeast, bottled, emptied");
-    add(more, sum, btns, ed, slot);
-    return add(c, nb, noteSlot, more);
+    return add(c, nb, noteSlot);
+  }
+  function finishCard(b) {
+    const btns = el("div", "btns"), slot = el("div");
+    ["Bottled", "Empty"].forEach(a => {
+      const bt = el("button", null, LABEL[a]);
+      bt.type = "button";
+      bt.addEventListener("click", () => { slot.replaceChildren(actionForm(b, a)); slot.scrollIntoView({ behavior: "smooth", block: "start" }); });
+      btns.appendChild(bt);
+    });
+    return add(card(), btns, slot);
   }
 
   function actionForm(b, action, bare) {
@@ -678,7 +686,8 @@ footer a { color: inherit; }
       if (action === "Reading" && !body.gravity && !body.ph && !body.note) return show("Enter a gravity, pH or note.");
       if (action === "Moved" && !body.location) return show("Where has it gone?");
       if (!await pinPost(body, auth, save, show)) return;
-      FLASH = { text: "Saved: " + LABEL[action].replace("+ ", "") + " for " + b.id + "." };
+      const DONE = { Bottled: "Bottled", Empty: "Emptied", Fill: "Filled", Note: "Note saved", Reading: "Reading saved", Yeast: "Yeast saved", Moved: "Moved" };
+      FLASH = { text: (DONE[action] || "Saved") + ": " + b.id + "." };
       if (action === "Bottled") FLASH.link = { text: "Print " + (body.bottles || "") + " bottle labels", href: "#labels/" + body.blend + "-" + b.id + "/" + (parseInt(body.bottles, 10) || 24) };
       route();
     });
@@ -821,7 +830,7 @@ footer a { color: inherit; }
     const yeast = input(cur.fillYeast || "", { placeholder: "e.g. SafCider TF-6" });
     suggest(yeast, "dl-yeasts", knownYeasts());
     const note = el("textarea"); note.value = cur.fillNote || "";
-    add(f, field("Which blend?", blend), field("Date filled", filled), field("Yeast at filling", yeast, "Yeast added later is changed in the Notes"), field("Note", note));
+    add(f, field("Which blend?", blend), field("Date filled", filled), field("Yeast", yeast), field("Note", note));
     const auth = pinFields(f);
     const { save, show } = formEnd(f, "Save changes", "#" + b.id);
 
