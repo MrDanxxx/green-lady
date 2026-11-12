@@ -606,7 +606,7 @@ footer a { color: inherit; }
     });
     const ed = el("a", "button full", "Edit barrel details");
     ed.href = "#" + b.id + "/edit"; ed.style.marginTop = "10px";
-    if (!b.current) return add(card("Crew"), btns, ed, slot);
+    if (!b.current) { btns.style.gridTemplateColumns = "1fr"; return add(card("Crew"), btns, ed, slot); }
 
     const c = card("Add a note");
     const f = crewForm(b, "Note", true);
