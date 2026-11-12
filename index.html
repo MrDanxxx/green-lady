@@ -490,7 +490,7 @@ footer a { color: inherit; }
 
   function blendsTab() {
     page("Blends", "blends");
-    $main.appendChild(tabHead("Blends", "Each pressing of juice: its apples and starting readings.", "+ New blend", "#blends/new"));
+    $main.appendChild(tabHead("Juice Blends", null, "+ New blend", "#blends/new"));
     const ids = Object.keys(DB.blends).sort().reverse();
     if (!ids.length) { $main.appendChild(add(card(), el("p", "muted", "No blends yet. Tap “+ New blend”."))); return; }
     const byV = {};
