@@ -514,9 +514,9 @@ footer a { color: inherit; }
   function bottlesTab() {
     page("Bottles", "bottles");
     const c1 = card("Look up a bottle and rate it");
-    c1.appendChild(el("p", "sub", "Scan the label, or type the code from the label (e.g. 26A-B07 or 26A-B07-031)."));
+    c1.appendChild(el("p", "sub", "Scan the label, or type the code from the label (e.g. 26A-B07-031)."));
     const f = el("form", "codebox"), inp = el("input");
-    inp.placeholder = "e.g. 26A-B07"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Bottle code");
+    inp.placeholder = "e.g. 26A-B07-031"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Bottle code");
     f.style.marginTop = "0";
     add(f, inp, el("button", "primary", "Go"));
     const fmsg = el("div", "msg err"); fmsg.hidden = true; fmsg.style.marginTop = "10px";
@@ -525,7 +525,7 @@ footer a { color: inherit; }
       const v = inp.value.trim().toUpperCase(), p = parseCode(v);
       if (p) location.hash = p.code;
       else if (DB.barrels[v]) location.hash = v;
-      else { fmsg.textContent = "That code isn't recognised. It looks like 26A-B07."; fmsg.hidden = false; }
+      else { fmsg.textContent = "That code isn't recognised. It looks like 26A-B07-031."; fmsg.hidden = false; }
     });
     $main.appendChild(add(c1, f, fmsg));
 
