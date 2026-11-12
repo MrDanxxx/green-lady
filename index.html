@@ -68,6 +68,7 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .apples li:first-child { border-top: 0; padding-top: 0; }
 .apples .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--apple); flex: none; }
 .apples .name { font-weight: 600; }
+.apples .dot.yeast { background: var(--gold); }
 .apples .share { margin-left: auto; font-weight: 600; color: var(--green); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; padding: 0 6px 6px 0; }
@@ -266,21 +267,25 @@ footer a { color: inherit; }
       switch (ev.action) {
         case "Fill":
           if (b.current) b.history.push(b.current);
-          b.current = { blend: ev.blend, filled: ev.date, yeast: ev.yeast, events: ev.note || ev.gravity != null || ev.ph != null ? [ev] : [], by: ev.by };
+          b.current = { blend: ev.blend, filled: ev.date, yeast: ev.yeast, yeasts: ev.yeast ? [{ name: ev.yeast, date: ev.date, note: "", by: ev.by }] : [],
+                        events: ev.note || ev.gravity != null || ev.ph != null ? [ev] : [], by: ev.by };
           break;
         case "Moved":
           if (ev.location) b.location = ev.location;
           if (b.current) b.current.events.push(ev);
           break;
         case "Reading": case "Note":
-          if (b.current) { b.current.events.push(ev); if (ev.yeast) b.current.yeast = ev.yeast; }
+          if (b.current) {
+            if (ev.yeast) { b.current.yeast = ev.yeast; b.current.yeasts.push({ name: ev.yeast, date: ev.date, note: ev.note, by: ev.by }); }
+            else b.current.events.push(ev);
+          }
           break;
         case "Bottled": {
           const fill = b.current || { blend: ev.blend, filled: "", events: [] };
           const blend = ev.blend || fill.blend;
           const fg = ev.gravity != null ? ev.gravity : lastGravity(fill.events);
           fill.bottled = ev;
-          runs[blend + "-" + id] = { key: blend + "-" + id, blend, barrel: id, yeast: fill.yeast || "", filled: fill.filled, bottled: ev.date, bottles: ev.bottles,
+          runs[blend + "-" + id] = { key: blend + "-" + id, blend, barrel: id, yeast: fill.yeast || "", yeasts: fill.yeasts || [], filled: fill.filled, bottled: ev.date, bottles: ev.bottles,
                                      priming: ev.priming, fg, by: ev.by, note: ev.note, events: fill.events };
           b.history.push(fill);
           b.current = null;
@@ -329,8 +334,24 @@ footer a { color: inherit; }
     });
     return add(c, ul);
   }
+  // list: yeast entries [{name, date, note, by}]; fallback: the blend's yeast when nothing was recorded on the barrel
+  function yeastCard(list, fallback) {
+    list = (list || []).filter(y => y.name);
+    if (!list.length && fallback) list = [{ name: fallback, fromBlend: true }];
+    if (!list.length) return null;
+    const c = card("The yeast"), ul = el("ul", "apples");
+    list.forEach(y => {
+      const li = el("li"), t = el("div");
+      const sub = [y.date ? "Added " + fmtDate(y.date) : null, y.note, y.by ? "by " + y.by : null].filter(Boolean).join(" · ");
+      add(t, el("div", "name", y.name), sub ? el("div", "sub", sub) : null);
+      const dot = el("span", "dot yeast");
+      add(li, dot, t);
+      ul.appendChild(li);
+    });
+    return add(c, ul);
+  }
   function readingsCard(events, title) {
-    const rows = (events || []).filter(e => e.gravity != null || e.ph != null || e.note || e.yeast || e.action === "Moved");
+    const rows = (events || []).filter(e => e.gravity != null || e.ph != null || e.note || e.action === "Moved");
     if (!rows.length) return null;
     const c = card(title || "Readings"), t = el("table"), hr = el("tr");
     ["Date", "Gravity", "pH", "Notes"].forEach(x => hr.appendChild(el("th", null, x)));
@@ -338,7 +359,7 @@ footer a { color: inherit; }
     rows.forEach(r => {
       const tr = el("tr");
       const note = r.action === "Moved" ? "Moved to " + r.location + (r.note ? " – " + r.note : "")
-                 : [r.yeast ? "Yeast: " + r.yeast : "", r.note].filter(Boolean).join(" – ");
+                 : r.note;
       add(tr, el("td", "num", fmtDate(r.date)), el("td", "num", r.gravity != null ? sg(r.gravity) : "–"),
           el("td", "num", r.ph != null ? String(r.ph) : "–"), el("td", null, [note, r.by ? "(" + r.by + ")" : ""].filter(Boolean).join(" ")));
       t.appendChild(tr);
@@ -497,10 +518,9 @@ footer a { color: inherit; }
   }
 
   // ---------- pages ----------
-  function blendStats(grid, blend, yeast) {
-    if (!blend) { stat(grid, "Yeast", yeast, null, true); return; }
+  function blendStats(grid, blend) {
+    if (!blend) return;
     if (blend.juiced) stat(grid, "Juiced", fmtDate(blend.juiced), null, true);
-    stat(grid, "Yeast", yeast || blend.yeast, null, true);
     stat(grid, "Starting gravity", blend.gravity != null ? sg(blend.gravity) : null,
          blend.gravity != null ? "Potential " + abv(blend.gravity, 1.0).toFixed(1) + "% ABV" : null);
     stat(grid, "Starting pH", blend.ph != null ? String(blend.ph) : null);
@@ -521,7 +541,7 @@ footer a { color: inherit; }
     if (cur) {
       const grid = el("div", "stats");
       stat(grid, "Filled", fmtDate(cur.filled), ago(cur.filled), true);
-      blendStats(grid, blend, cur.yeast);
+      blendStats(grid, blend);
       const g = lastGravity(cur.events);
       if (g != null && blend && blend.gravity != null && g < blend.gravity) {
         stat(grid, "Latest gravity", sg(g));
@@ -533,7 +553,7 @@ footer a { color: inherit; }
     $main.appendChild(top);
 
     if (cur) {
-      add($main, applesCard(blend));
+      add($main, applesCard(blend), yeastCard(cur.yeasts, blend && blend.yeast));
       if (blend && blend.notes) $main.appendChild(add(card("Blend notes"), el("p", "notes", blend.notes)));
       add($main, readingsCard(cur.events));
     }
@@ -885,7 +905,6 @@ footer a { color: inherit; }
     if (blend) {
       if (blend.juiced) stat(grid, "Juiced", fmtDate(blend.juiced), null, true);
     }
-    stat(grid, "Yeast", (run && run.yeast) || (blend && blend.yeast), null, true);
     if (run && run.bottled) stat(grid, "Bottled", fmtDate(run.bottled), ago(run.bottled), true);
     if (run && run.filled && run.bottled) { const m = months(run.filled, run.bottled); if (m != null) stat(grid, "Time in barrel", m < 1.5 ? Math.round(m * 30.44) + " days" : m.toFixed(1) + " months"); }
     if (blend && blend.gravity != null) stat(grid, "Starting gravity", sg(blend.gravity), blend.ph != null ? "pH " + blend.ph : null);
@@ -895,7 +914,7 @@ footer a { color: inherit; }
     $main.appendChild(top);
 
     $main.appendChild(rateCard(p));
-    add($main, applesCard(blend));
+    add($main, applesCard(blend), yeastCard(run && run.yeasts, (run && run.yeast) || (blend && blend.yeast)));
     if (blend && blend.notes) $main.appendChild(add(card("About this blend"), el("p", "notes", blend.notes)));
     if (run && (run.priming || run.note)) $main.appendChild(add(card("Bottling"), el("p", "notes", [run.priming ? "Priming: " + run.priming : "", run.note].filter(Boolean).join("\n"))));
   }
@@ -981,7 +1000,7 @@ footer a { color: inherit; }
     top.appendChild(head);
     const grid = el("div", "stats"); blendStats(grid, blend); top.appendChild(grid);
     $main.appendChild(top);
-    add($main, applesCard(blend));
+    add($main, applesCard(blend), yeastCard(null, blend.yeast));
     if (blend.notes) $main.appendChild(add(card("Notes"), el("p", "notes", blend.notes)));
     const c = card("Where it went"), list = el("div", "list");
     DB.order.map(b => DB.barrels[b]).filter(b => b.current && b.current.blend === id).forEach(b => {
