@@ -832,7 +832,7 @@ footer a { color: inherit; }
     suggest(loc, "dl-locs", knownLocations());
     add(f, add(el("div", "two"), field("Size (litres)", size), field("Type", type)), field("Where is it?", loc));
     const auth = pinFields(f);
-    const { save, show } = formEnd(f, b ? "Save changes" : "Add barrel", b ? "#" + b.id : "#barrels");
+    const { save, show } = formEnd(f, b ? "Save changes" : "Add barrel", "#barrels");
     if (b) {
       // Delete: the row stays in the Sheet marked "Removed", so bottles from it keep their history.
       const del = el("button", "danger full", "Delete barrel");
