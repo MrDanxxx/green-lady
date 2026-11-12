@@ -541,8 +541,24 @@ footer a { color: inherit; }
         const o = el("option", null, "Blend " + r.blend + " · " + r.barrel + " · bottled " + fmtDate(r.bottled) + (r.bottles ? " · " + r.bottles + " bottles" : ""));
         o.value = r.key; sel.appendChild(o);
       });
-      add(rf, field("Which batch?", sel), el("button", "primary full", "Reprint labels"));
-      rf.addEventListener("submit", ev => { ev.preventDefault(); location.hash = "print/" + sel.value; });
+      // needs the PIN number (checked with the Sheet) - the whole batch is reprinted
+      const pin = input(store.get("gl-pin") || "", { type: "password", inputMode: "numeric" });
+      const go = el("button", "primary full", "Reprint labels");
+      const rmsg = el("div", "msg err"); rmsg.hidden = true;
+      add(rf, field("Which batch?", sel), field("PIN NUMBER", pin), go, rmsg);
+      rf.addEventListener("submit", async ev => {
+        ev.preventDefault();
+        const show = t => { rmsg.textContent = t; rmsg.hidden = false; };
+        if (!pin.value.trim()) return show("Enter the PIN number.");
+        go.disabled = true; go.textContent = "Checking…";
+        let r;
+        try { r = await post({ kind: "pin", pin: pin.value.trim() }); } catch (e) { r = null; }
+        go.disabled = false; go.textContent = "Reprint labels";
+        if (!r) return show("No connection. Try again.");
+        if (!r.ok) { store.del("gl-pin"); return show("Wrong PIN number."); }
+        store.set("gl-pin", pin.value.trim());
+        location.hash = "print/" + sel.value;
+      });
       $main.appendChild(add(c2, rf));
     }
 
