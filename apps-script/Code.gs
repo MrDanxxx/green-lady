@@ -121,15 +121,15 @@ function doPost(e) {
       return reply({ ok: true, ratings: list });
     }
 
-    // PIN only: mark one rating as Removed (the row stays in the Sheet, dated).
+    // PIN only: censor one review - its row is deleted from the Ratings tab.
     if (d.kind === "removeRating") {
       if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong PIN number" });
       const sh = tab(ss, "Ratings"), row = Number(d.row);
       if (!(row >= 2 && row <= sh.getLastRow())) return reply({ ok: false, error: "That rating isn't in the Sheet" });
-      const cols = columnsFor(sh, "Ratings", { Removed: now });
+      const cols = columnsFor(sh, "Ratings", {});
       const bottle = String(sh.getRange(row, cols.where.Bottle + 1).getValue()).trim().toUpperCase();
-      if (bottle !== clean(d.bottle, 30).toUpperCase()) return reply({ ok: false, error: "That rating has moved - reload and try again" });
-      sh.getRange(row, cols.where.Removed + 1).setValue(now).setNumberFormat("d mmm yyyy");
+      if (bottle !== clean(d.bottle, 30).toUpperCase()) return reply({ ok: false, error: "That review has moved - reload and try again" });
+      sh.deleteRow(row);
       return reply({ ok: true });
     }
 
