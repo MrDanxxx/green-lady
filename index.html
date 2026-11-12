@@ -151,6 +151,9 @@ footer a { color: inherit; }
 .tabs { position: sticky; top: 0; z-index: 5; display: flex; justify-content: center; background: var(--card); border-bottom: 1px solid var(--line); }
 .tabs a { flex: 1; max-width: 214px; text-align: center; padding: 14px 6px 11px; font-weight: 600; color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; }
 .tabs a.on { color: var(--green); border-bottom-color: var(--green); }
+.subtabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.subtabs a { text-align: center; padding: 9px 4px; border-radius: 9px; font-weight: 600; font-size: 14px; color: var(--muted); text-decoration: none; }
+.subtabs a.on { background: var(--btn); color: #fff; }
 .msg.gap { margin-bottom: 16px; }
 .applerows { display: grid; gap: 10px; }
 .applerow { display: grid; grid-template-columns: 1fr 72px 44px; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
@@ -1231,17 +1234,18 @@ footer a { color: inherit; }
     $main.replaceChildren();
     window.scrollTo(0, 0);
     const LV = {
-      blends:  { title: "Blend rating",  sub: "Each blend, all its barrels and bottles together, best rated first.", next: ["Barrel rating ›", "#league/barrels"] },
-      barrels: { title: "Barrel rating", sub: "Each bottling run (one blend from one barrel), best rated first.", back: "#league", next: ["Bottle rating ›", "#league/bottles"] },
-      bottles: { title: "Bottle rating", sub: "Each numbered bottle, best rated first.", back: "#league/barrels" },
+      blends:  { title: "Best Blends",  sub: "Each blend, all its barrels and bottles together, best rated first." },
+      barrels: { title: "Best Barrels", sub: "Each bottling run (one blend from one barrel), best rated first." },
+      bottles: { title: "Best Bottles", sub: "Each numbered bottle, best rated first." },
     }[level];
-    if (LV.back) {
-      const back = el("a", "button soft small", "‹ Back"); back.href = LV.back; back.style.marginBottom = "12px";
-      $main.appendChild(back);
-    }
+    // three tabs inside the League tab
+    const sub = el("nav", "subtabs");
+    [["blends", "Best Blends", "#league"], ["barrels", "Best Barrels", "#league/barrels"], ["bottles", "Best Bottles", "#league/bottles"]].forEach(([k, t, h]) => {
+      const a = el("a", k === level ? "on" : null, t); a.href = h; sub.appendChild(a);
+    });
+    $main.appendChild(sub);
     const c = card(LV.title);
     c.appendChild(el("p", "sub", LV.sub + " Score: 👍 = 1, 👌 = ½, 👎 = 0."));
-    if (LV.next) { const nx = el("a", "button primary full", LV.next[0]); nx.href = LV.next[1]; nx.style.margin = "12px 0 4px"; c.appendChild(nx); }
 
     // rows: { href, name, sub, agg }
     let rows = [];
