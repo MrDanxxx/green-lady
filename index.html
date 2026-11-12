@@ -80,6 +80,8 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .list .name { font-weight: 600; }
 .list a:hover .name { color: var(--green); }
 .list .right { text-align: right; flex: none; }
+.list .row > a { flex: 1; min-width: 0; border-top: 0; padding: 0; }
+.list a.edit { flex: none; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; }
 .muted, .empty { color: var(--muted); }
 .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 button, .button { font: inherit; font-weight: 600; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 12px; cursor: pointer; text-align: center; text-decoration: none; display: inline-block; }
@@ -427,7 +429,9 @@ footer a { color: inherit; }
           if (d) right.appendChild(el("div", "sub", "filled " + d));
         } else right.appendChild(el("span", "pill empty", "Empty"));
         add(a, left, right);
-        list.appendChild(a);
+        const ed = el("a", "edit", "Edit"); ed.href = "#" + b.id + "/edit";
+        ed.setAttribute("aria-label", "Edit " + vesselName(b));
+        list.appendChild(add(el("div", "row"), a, ed));
       });
       $main.appendChild(add(c, list));
     });
