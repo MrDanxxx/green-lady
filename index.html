@@ -557,7 +557,6 @@ footer a { color: inherit; }
 
     if (cur) {
       add($main, applesCard(blend), yeastCard(cur.yeasts, blend && blend.yeast));
-      if (blend && blend.notes) $main.appendChild(add(card("Blend notes"), el("p", "notes", blend.notes)));
       add($main, readingsCard(cur.events, "Readings & notes"));
     }
     $main.appendChild(actionCard(b));
@@ -869,8 +868,7 @@ footer a { color: inherit; }
     const ph = input(bl && bl.ph != null ? String(bl.ph) : "", { inputMode: "decimal", placeholder: "3.5" });
     const yeast = input(bl ? bl.yeast : "", { placeholder: "e.g. SafCider TF-6" });
     suggest(yeast, "dl-yeasts", knownYeasts());
-    const notes = el("textarea"); notes.value = bl ? bl.notes : "";
-    add(f, add(el("div", "two"), field("Starting gravity", grav), field("Starting pH", ph)), field("Yeast", yeast), field("Notes", notes));
+    add(f, add(el("div", "two"), field("Starting gravity", grav), field("Starting pH", ph)), field("Yeast", yeast));
     const auth = pinFields(f);
     const { save, show } = formEnd(f, bl ? "Save changes" : "Save blend", bl ? "#blend/" + bl.id : "#blends");
 
@@ -891,7 +889,7 @@ footer a { color: inherit; }
       if (g === "x") return show("Starting gravity doesn't look like a number (e.g. 1.050).");
       if (p && !isFinite(Number(p))) return show("pH doesn't look like a number (e.g. 3.5).");
       const body = { kind: "blend", isNew: !bl, blend: id, juiced: juiced.value, apples: apples.join("; "), gravity: g, ph: p,
-                     yeast: yeast.value.trim(), notes: notes.value.trim() };
+                     yeast: yeast.value.trim(), notes: bl ? bl.notes : "" };   // notes no longer shown; keep whatever is in the Sheet
       if (!await pinPost(body, auth, save, show)) return;
       FLASH = { text: bl ? "Saved changes to blend " + id + "." : "Saved blend " + id + ". You can now fill barrels with it (Barrels → barrel → Fill)." };
       location.hash = "blend/" + id;
@@ -926,7 +924,6 @@ footer a { color: inherit; }
 
     $main.appendChild(rateCard(p));
     add($main, applesCard(blend), yeastCard(run && run.yeasts, (run && run.yeast) || (blend && blend.yeast)));
-    if (blend && blend.notes) $main.appendChild(add(card("About this blend"), el("p", "notes", blend.notes)));
     if (run && (run.priming || run.note)) $main.appendChild(add(card("Bottling"), el("p", "notes", [run.priming ? "Priming: " + run.priming : "", run.note].filter(Boolean).join("\n"))));
   }
 
@@ -1012,7 +1009,6 @@ footer a { color: inherit; }
     const grid = el("div", "stats"); blendStats(grid, blend); top.appendChild(grid);
     $main.appendChild(top);
     add($main, applesCard(blend), yeastCard(null, blend.yeast));
-    if (blend.notes) $main.appendChild(add(card("Notes"), el("p", "notes", blend.notes)));
     const c = card("Where it went"), list = el("div", "list");
     DB.order.map(b => DB.barrels[b]).filter(b => b.current && b.current.blend === id).forEach(b => {
       const a = el("a"); a.href = "#" + b.id;
