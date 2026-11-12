@@ -84,7 +84,8 @@ function doGet() {
       });
   });
   // Friends' names and comments stay private.
-  out.Ratings = out.Ratings.map(function (r) { return { Bottle: r.Bottle, Rating: r.Rating, Tags: r.Tags || "" }; });
+  // The date is kept (not the time) so the page can show how long a bottle had aged when tasted.
+  out.Ratings = out.Ratings.map(function (r) { return { Bottle: r.Bottle, Rating: r.Rating, Tags: r.Tags || "", Time: String(r.Time || "").slice(0, 10) }; });
   return reply(out);
 }
 
