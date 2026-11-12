@@ -122,6 +122,16 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .list a:hover .name { color: var(--green); }
 .list .right { text-align: right; flex: none; }
 .list .row > a { flex: 1; min-width: 0; border-top: 0; padding: 0; }
+/* Barrels list: one table per location */
+.btable { display: grid; }
+.bt-row { position: relative; display: grid; grid-template-columns: 1fr 1.1fr 1.5fr 44px; align-items: center; gap: 8px; padding: 11px 0; border-top: 1px solid var(--line); }
+.bt-head { padding: 0 0 8px; border-top: 0; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.bt-head > :last-child, .bt-edit { justify-self: center; text-align: center; }
+.bt-open { position: absolute; inset: 0; }   /* tap anywhere on the row to open the barrel */
+.bt-name { font-weight: 700; }
+.bt-date { font-size: 14px; color: var(--muted); }
+.bt-edit { position: relative; z-index: 1; }   /* above the row link */
+.bt-tick { width: 24px; height: 24px; margin: 0; accent-color: var(--btn); cursor: pointer; }
 .list a.brow { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; }
 .list a.brow > .pill, .list a.brow > .mid { justify-self: center; }
 .list a.brow .mid { display: grid; justify-items: center; gap: 2px; }
@@ -504,25 +514,24 @@ footer a { color: inherit; }
     const groups = {};
     DB.order.forEach(id => { const b = DB.barrels[id]; (groups[b.location || "Unknown"] ||= []).push(b); });
     Object.keys(groups).forEach(loc => {
-      const c = card(loc), list = el("div", "list");
-      groups[loc].sort((x, y) => (x.current ? 0 : 1) - (y.current ? 0 : 1));   // full first, empty at the bottom (sort keeps the order otherwise)
+      // a table per location: Barrel | Juice Blend | Fill Date | Edit (tick box)
+      const c = card(loc), list = el("div", "btable");
+      const hd = el("div", "bt-row bt-head");
+      ["Barrel", "Juice Blend", "Fill Date", "Edit"].forEach(t => hd.appendChild(el("div", null, t)));
+      list.appendChild(hd);
+      groups[loc].sort((x, y) => (x.current ? 0 : 1) - (y.current ? 0 : 1));   // full first, empty at the bottom
       groups[loc].forEach(b => {
-        const a = el("a"); a.href = "#" + b.id;
-        const left = el("div");
-        add(left, el("div", "name", vesselName(b)), el("div", "sub", [b.size, b.type].filter(Boolean).join(" · ")));
-        // barrel | blend label (centred) | filled date
-        const right = el("div", "right");
-        let pill;
-        if (b.current) {
-          pill = add(el("div", "mid"), el("span", "pill tag", b.current.blend), el("div", "sub", "Blend"));
-          const d = fmtDateTh(b.current.filled);
-          if (d) right.appendChild(el("div", "sub", "filled " + d));
-        } else pill = el("span", "pill empty", "Empty");
-        a.className = "brow";
-        add(a, left, pill, right);
-        const ed = el("a", "edit primary", "Edit"); ed.href = "#" + b.id + "/edit";
-        ed.setAttribute("aria-label", "Edit " + vesselName(b));
-        list.appendChild(add(el("div", "row"), a, ed));
+        const row = el("div", "bt-row");
+        const open = el("a", "bt-open"); open.href = "#" + b.id; open.setAttribute("aria-label", "Open " + vesselName(b));
+        const name = el("div", "bt-name", b.id);
+        const blend = el("div"), date = el("div", "bt-date");
+        if (b.current) { blend.appendChild(el("span", "pill tag", b.current.blend)); date.textContent = fmtDateTh(b.current.filled); }
+        else blend.appendChild(el("span", "pill empty", "Empty"));
+        const tick = el("input", "bt-tick"); tick.type = "checkbox"; tick.setAttribute("aria-label", "Edit " + vesselName(b));
+        tick.addEventListener("change", () => { if (tick.checked) location.hash = b.id + "/edit"; });
+        const tc = el("div", "bt-edit"); tc.appendChild(tick);
+        add(row, open, name, blend, date, tc);
+        list.appendChild(row);
       });
       $main.appendChild(add(c, list));
     });
