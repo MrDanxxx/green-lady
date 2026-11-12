@@ -1477,7 +1477,7 @@ footer a { color: inherit; }
     });
     $main.appendChild(sub);
     const c = card(LV.title);
-    c.appendChild(el("p", "sub", LV.sub + " Score: 👍 = 1, 👌 = ½, 👎 = 0."));
+    c.appendChild(el("p", "sub", LV.sub + " Score: " + RATE.map(r => r[1] + " " + Math.round(r[3] * 100) + "%").join(" · ")));
 
     // rows: { href, name, sub, agg }
     let rows = [];
