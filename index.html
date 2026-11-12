@@ -517,12 +517,12 @@ footer a { color: inherit; }
     page("Bottles", "bottles");
     // two tabs inside Bottles
     const sub = el("nav", "subtabs"); sub.style.gridTemplateColumns = "1fr 1fr";
-    [["look", "Look up a bottle and rate it", "#bottles"], ["reprint", "Reprint bottle labels", "#bottles/reprint"]].forEach(([k, t, h]) => {
+    [["look", "Rate your bottle", "#bottles"], ["reprint", "Reprint bottle labels", "#bottles/reprint"]].forEach(([k, t, h]) => {
       const a = el("a", k === (which || "look") ? "on" : null, t); a.href = h; sub.appendChild(a);
     });
     $main.appendChild(sub);
     if (which === "reprint") return reprintCard();
-    const c1 = card("Look up a bottle and rate it");
+    const c1 = card("Search by serial number");
     c1.appendChild(el("p", "sub", "Scan the label, or type the code from the label (e.g. 26A-B07-031)."));
     const f = el("form", "codebox"), inp = el("input");
     inp.placeholder = "e.g. 26A-B07-031"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Bottle code");
