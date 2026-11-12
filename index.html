@@ -1596,7 +1596,7 @@ footer a { color: inherit; }
   const HOME = [57.05, -2.5];   // where the map starts when there are no pins yet
   function makeMap(box, L) {
     const map = L.map(box, { scrollWheelZoom: false, attributionControl: true });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap", referrerPolicy: "origin" }).addTo(map);   // OpenStreetMap blocks map tiles sent with no referrer (the page sets no-referrer)
     return map;
   }
   const pinIcon = L => L.divIcon({ className: "", html: '<div style="font-size:30px;line-height:1;transform:translate(-50%,-100%);position:absolute">📍</div>', iconSize: [0, 0] });
