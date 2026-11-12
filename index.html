@@ -518,23 +518,6 @@ footer a { color: inherit; }
     });
     $main.appendChild(add(c1, f, fmsg));
 
-    const runs = Object.values(DB.runs).filter(r => r.bottled).sort((a, b) => (b.bottled || "").localeCompare(a.bottled || ""));
-    const c2 = card("Bottled batches"), list = el("div", "list");
-    if (!runs.length) c2.appendChild(el("p", "muted", "Nothing bottled yet. Bottling is recorded on the barrel: Barrels → pick the barrel → Bottle it."));
-    runs.forEach(r => {
-      const bl = DB.blends[r.blend], a = el("a"); a.href = "#" + r.key;
-      const left = el("div");
-      const strength = bl && bl.gravity != null && r.fg != null ? "≈ " + abv(bl.gravity, r.fg).toFixed(1) + "% ABV" : null;
-      add(left, el("div", "name", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(r.blend) + " · " + r.barrel),
-          el("div", "sub", ["Bottled " + fmtDate(r.bottled), r.bottles ? r.bottles + " bottles" : null, strength].filter(Boolean).join(" · ")));
-      const right = el("div", "right"), agg = DB.ratings[r.key];
-      right.appendChild(agg && agg.n ? el("div", "score", Math.round(score(agg) * 100) + "%") : el("div", "sub", "not rated"));
-      if (agg && agg.n) right.appendChild(el("div", "sub", agg.n + (agg.n === 1 ? " rating" : " ratings")));
-      add(a, left, right);
-      list.appendChild(a);
-    });
-    $main.appendChild(add(c2, list));
-
     const c4 = card("Ratings"), l1 = el("a", "button primary full", "League table");
     l1.href = "#league";
     $main.appendChild(add(c4, l1));
