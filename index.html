@@ -192,6 +192,7 @@ footer a { color: inherit; }
   <a href="#barrels" data-tab="barrels">Barrels</a>
   <a href="#blends" data-tab="blends">Blends</a>
   <a href="#bottles" data-tab="bottles">Bottles</a>
+  <a href="#league" data-tab="league">League</a>
 </nav>
 
 <main id="main" aria-live="polite">
@@ -518,9 +519,6 @@ footer a { color: inherit; }
     });
     $main.appendChild(add(c1, f, fmsg));
 
-    const c4 = card("Ratings"), l1 = el("a", "button primary full", "League table");
-    l1.href = "#league";
-    $main.appendChild(add(c4, l1));
   }
 
   // ---------- pages ----------
@@ -1204,7 +1202,7 @@ footer a { color: inherit; }
   function league() {
     setVintage(null);
     document.title = "League table · Green Lady";
-    setTab("bottles");
+    setTab("league");
     $main.replaceChildren();
     window.scrollTo(0, 0);
     const rated = Object.values(DB.runs).filter(r => DB.ratings[r.key] && DB.ratings[r.key].n)
