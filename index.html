@@ -16,7 +16,7 @@
   Links:
     #barrels  #blends  #bottles   the three tabs   (#barrels/new, #blends/new, #B07/edit, #B07/fill, #blend/26A/edit = edit forms)
     #B07            barrel page (NFC tag / QR on the barrel)
-    #26A-B07-031    bottle page + rating (QR label on the bottle; the -031 bottle number is optional)
+    #26A-B07-31    bottle page + rating (QR label on the bottle; the -31 bottle number is optional)
     #league         league table of bottling runs
     #labels/26A-B07/23   printable bottle QR labels     #labels/barrels   barrel QR stickers
   All Sheet text is shown with textContent only.
@@ -281,7 +281,7 @@ footer a { color: inherit; }
     const t = String(s || "").toUpperCase().replace(/\s+/g, "");
     const m = /^(\d+[A-Z]+?)-?([BD]\d{2,3})(?:-?(\d{1,4}))?$/.exec(t);
     if (!m) return null;
-    const n = m[3] ? m[3].padStart(3, "0") : "";
+    const n = m[3] ? String(Number(m[3])).padStart(2, "0") : "";   // 2-digit bottle numbers; old 3-digit ones (031) still read as 31
     return { blend: m[1], barrel: m[2], n, run: m[1] + "-" + m[2], code: m[1] + "-" + m[2] + (n ? "-" + n : "") };
   }
 
@@ -535,9 +535,9 @@ footer a { color: inherit; }
     $main.appendChild(sub);
     if (which === "reprint") return reprintCard();
     const c1 = card("Search by serial number");
-    c1.appendChild(el("p", "sub", "Type the serial number from the label (e.g. 26A-B07-031)."));
+    c1.appendChild(el("p", "sub", "Type the serial number from the label (e.g. 26A-B07-31)."));
     const f = el("form", "codebox"), inp = el("input");
-    inp.placeholder = "e.g. 26A-B07-031"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Serial number");
+    inp.placeholder = "e.g. 26A-B07-31"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Serial number");
     f.style.marginTop = "0";
     add(f, inp, el("button", "primary", "Go"));
     const fmsg = el("div", "msg err"); fmsg.hidden = true; fmsg.style.marginTop = "10px";
@@ -550,7 +550,7 @@ footer a { color: inherit; }
         location.hash = p.code;
       }
       else if (DB.barrels[v]) location.hash = v;
-      else { fmsg.textContent = "That serial number isn't recognised. It looks like 26A-B07-031."; fmsg.hidden = false; }
+      else { fmsg.textContent = "That serial number isn't recognised. It looks like 26A-B07-31."; fmsg.hidden = false; }
     });
     $main.appendChild(add(c1, f, fmsg));
 
@@ -944,6 +944,7 @@ footer a { color: inherit; }
       ev.preventDefault();
       const n = bottles.value.trim(), g = gravityVal(fg.value);
       if (n && !/^\d+$/.test(n)) return show("How many bottles should be a number.");
+      if (n && (Number(n) < 1 || Number(n) > 99)) return show("Bottles are numbered 01 to 99, so up to 99 bottles per barrel.");
       if (g && !isFinite(Number(g))) return show("That gravity doesn't look like a number.");
       const body = { kind: "log", action: "Bottled", barrel: b.id, blend: cur.blend, bottles: n, gravity: g, priming: priming.value.trim() };
       if (!await pinPost(body, auth, save, show)) return;
@@ -1270,7 +1271,7 @@ footer a { color: inherit; }
         if (!n || n < 1) { msg.textContent = "Type the bottle number, e.g. 31."; msg.hidden = false; return; }
         const bad = bottleProblem(parseCode(p.run + "-" + n));
         if (bad) { msg.textContent = bad; msg.hidden = false; return; }
-        location.hash = p.run + "-" + String(n).padStart(3, "0");
+        location.hash = p.run + "-" + String(n).padStart(2, "0");
       });
       return add(c, f, msg);
     }
@@ -1474,8 +1475,8 @@ footer a { color: inherit; }
       f.addEventListener("submit", e => { e.preventDefault(); upd(); });
       ctl.appendChild(f);
       for (let n = start; n < start + count; n++) {
-        const code = p.run + "-" + String(n).padStart(3, "0");
-        items.push({ url: SITE + "#" + code, t1: vlabel(bl ? bl.vintage : null), t2: "Blend " + blendLetter(p.blend) + " · " + p.barrel + " · No. " + String(n).padStart(3, "0"), t3: "Scan me & rate me" });
+        const code = p.run + "-" + String(n).padStart(2, "0");
+        items.push({ url: SITE + "#" + code, t1: vlabel(bl ? bl.vintage : null), t2: "Blend " + blendLetter(p.blend) + " · " + p.barrel + " · No. " + String(n).padStart(2, "0"), t3: "Scan me & rate me" });
       }
     }
     const pr = el("button", "primary full", "Print"); pr.type = "button"; pr.style.marginTop = "12px";
