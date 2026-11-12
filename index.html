@@ -1105,6 +1105,23 @@ footer a { color: inherit; }
 
   function rateCard(p) {
     const c = card("How was it?");
+    // Ratings are per bottle: on a batch page (no bottle number) ask for the number on the label first.
+    if (!p.n) {
+      c.appendChild(el("p", "sub", "Each bottle is rated on its own. Type the number from the bottle's label."));
+      const f = el("form", "codebox"); f.style.marginTop = "10px";
+      const num = input("", { inputMode: "numeric", placeholder: "e.g. 31", autocomplete: "off" });
+      num.setAttribute("aria-label", "Bottle number");
+      const go = el("button", "primary", "Rate this bottle");
+      const msg = el("div", "msg err"); msg.hidden = true; msg.style.marginTop = "10px";
+      add(f, num, go);
+      f.addEventListener("submit", ev => {
+        ev.preventDefault();
+        const n = parseInt(num.value, 10);
+        if (!n || n < 1) { msg.textContent = "Type the bottle number, e.g. 31."; msg.hidden = false; return; }
+        location.hash = p.run + "-" + String(n).padStart(3, "0");
+      });
+      return add(c, f, msg);
+    }
     const key = "gl-rated-" + p.code;
     const prev = store.get(key);
     const agg = DB.ratings[p.run];
