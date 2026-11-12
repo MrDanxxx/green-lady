@@ -102,6 +102,9 @@ textarea { min-height: 70px; resize: vertical; }
 .rate button.on.Good { border-color: var(--good); color: var(--good); }
 .rate button.on.OK { border-color: var(--ok); color: var(--ok); }
 .rate button.on.Poor { border-color: var(--poor); color: var(--poor); }
+.more { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.more summary { cursor: pointer; color: var(--green); font-weight: 600; font-size: 14px; }
+.more[open] summary { margin-bottom: 12px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chips button { padding: 6px 12px; font-size: 14px; font-weight: 500; border-radius: 999px; }
 .chips button.on { background: var(--pill); border-color: var(--green); color: var(--green); }
@@ -555,7 +558,7 @@ footer a { color: inherit; }
     if (cur) {
       add($main, applesCard(blend), yeastCard(cur.yeasts, blend && blend.yeast));
       if (blend && blend.notes) $main.appendChild(add(card("Blend notes"), el("p", "notes", blend.notes)));
-      add($main, readingsCard(cur.events));
+      add($main, readingsCard(cur.events, "Readings & notes"));
     }
     $main.appendChild(crewCard(b));
 
@@ -590,25 +593,32 @@ footer a { color: inherit; }
   };
   const LABEL = { Fill: "Fill this barrel", Reading: "+ Reading", Bottled: "Bottled", Moved: "Moved", Note: "+ Note", Empty: "Emptied", Yeast: "+ Yeast" };
 
+  // Full barrel: just a notes box, with the other actions tucked under "More".
+  // Empty barrel: Fill (and Moved), since there's nothing to make notes about yet.
   function crewCard(b) {
-    const c = card("Crew");
-    c.appendChild(el("p", "sub", "Record what's happened to this " + (/^D/.test(b.id) ? "demijohn" : "barrel") + ". Needs the crew PIN."));
     const btns = el("div", "btns"), slot = el("div");
-    const actions = b.current ? ["Reading", "Yeast", "Note", "Bottled", "Moved", "Empty"] : ["Fill", "Moved"];
+    const actions = b.current ? ["Reading", "Yeast", "Bottled", "Moved", "Empty"] : ["Fill", "Moved"];
     actions.forEach((a, i) => {
-      const bt = el("button", i === 0 ? "primary" : null, LABEL[a]);
+      const bt = el("button", !b.current && i === 0 ? "primary" : null, LABEL[a]);
       bt.type = "button";
       bt.addEventListener("click", () => { slot.replaceChildren(crewForm(b, a)); });
       btns.appendChild(bt);
     });
     const ed = el("a", "button full", "Edit barrel details");
     ed.href = "#" + b.id + "/edit"; ed.style.marginTop = "10px";
-    return add(c, btns, ed, slot);
+    if (!b.current) return add(card("Crew"), btns, ed, slot);
+
+    const c = card("Add a note");
+    const f = crewForm(b, "Note", true);
+    const more = el("details", "more"), sum = el("summary", null, "More: reading, yeast, bottled, moved, emptied");
+    add(more, sum, btns, ed, slot);
+    return add(c, f, more);
   }
 
-  function crewForm(b, action) {
+  function crewForm(b, action, bare) {
     const f = el("form"), inputs = {};
-    f.appendChild(el("h3", null, LABEL[action] + " · " + b.id));
+    if (bare) f.style.marginTop = "0";
+    else f.appendChild(el("h3", null, LABEL[action] + " · " + b.id));
     FIELDS[action].forEach(([k, label, kind, hint]) => {
       const l = el("label");
       l.appendChild(document.createTextNode(label));
@@ -654,7 +664,8 @@ footer a { color: inherit; }
     }
     const auth = crewFields(f);
     const msg = el("div", "msg"); msg.hidden = true;
-    const save = el("button", "primary full", "Save");
+    const save = el("button", "primary full", bare ? "Save note" : "Save");
+    if (bare && inputs.note) { inputs.note.placeholder = "e.g. Bubbling well, smells sweet"; inputs.note.parentNode.firstChild.remove(); inputs.note.setAttribute("aria-label", "Note"); }
     add(f, save, msg);
 
     f.addEventListener("submit", async ev => {
