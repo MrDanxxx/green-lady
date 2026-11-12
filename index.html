@@ -51,7 +51,7 @@ header .vintage { font-family: Fraunces, Georgia, serif; font-size: 18px; color:
 main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
 .card h2 { font-family: Fraunces, Georgia, serif; font-size: 20px; margin: 0 0 12px; color: var(--green); font-weight: 600; }
-.headbtns { display: grid; gap: 8px; }
+button.danger { color: var(--poor); border-color: color-mix(in srgb, var(--poor) 45%, transparent); background: transparent; }
 .cardhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
 .cardhead h2 { margin: 0; }
 .card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 16px 0 6px; }
@@ -412,17 +412,11 @@ footer a { color: inherit; }
     document.title = title ? title + " · Green Lady" : "Green Lady Cider";
     $main.replaceChildren();
   }
-  function tabHead(title, sub, btnText, href, btn2Text, href2) {
+  function tabHead(title, sub, btnText, href) {
     const c = card(), head = el("div", "head"), h = el("div");
     add(h, el("h1", null, title), sub ? el("div", "sub", sub) : null);
     head.appendChild(h);
-    if (btnText) {
-      const a = el("a", "button primary", btnText); a.href = href;
-      if (btn2Text) {
-        const a2 = el("a", "button", btn2Text); a2.href = href2;
-        head.appendChild(add(el("div", "headbtns"), a, a2));
-      } else head.appendChild(a);
-    }
+    if (btnText) { const a = el("a", "button primary", btnText); a.href = href; head.appendChild(a); }
     return add(c, head);
   }
   function whereBlend(id) {
@@ -433,7 +427,7 @@ footer a { color: inherit; }
     page("Barrels", "barrels");
     if (message) $main.appendChild(el("div", "msg err gap", message));
     const inUse = DB.order.filter(id => DB.barrels[id].current).length;
-    const top = tabHead("Barrels", DB.order.length + " in total · " + inUse + " in use · " + (DB.order.length - inUse) + " empty", "+ Add barrel", "#barrels/new", "- Remove barrel", "#barrels/remove");
+    const top = tabHead("Barrels", DB.order.length + " in total · " + inUse + " in use · " + (DB.order.length - inUse) + " empty", "+ Add barrel", "#barrels/new");
     $main.appendChild(top);
 
     const groups = {};
@@ -826,6 +820,19 @@ footer a { color: inherit; }
     add(f, add(el("div", "two"), field("Size (litres)", size), field("Type", type)), field("Where is it?", loc), field("Notes", notes));
     const auth = pinFields(f);
     const { save, show } = formEnd(f, b ? "Save changes" : "Add barrel", b ? "#" + b.id : "#barrels");
+    if (b) {
+      // Delete: the row stays in the Sheet marked "Removed", so bottles from it keep their history.
+      const del = el("button", "danger full", "Delete barrel");
+      del.type = "button"; del.style.marginTop = "8px";
+      f.appendChild(del);
+      del.addEventListener("click", async () => {
+        if (b.current) return show(b.id + " still has cider in it. Bottle it or empty it first.");
+        if (!confirm("Delete " + vesselName(b) + "?")) return;
+        if (!await pinPost({ kind: "barrel", remove: true, barrel: b.id }, auth, del, show)) return;
+        FLASH = { text: "Deleted " + b.id + "." };
+        location.hash = "barrels";
+      });
+    }
     f.addEventListener("submit", async ev => {
       ev.preventDefault();
       const id = b ? b.id : idIn.value.trim().toUpperCase();
@@ -839,31 +846,6 @@ footer a { color: inherit; }
       if (!await pinPost(body, auth, save, show)) return;
       FLASH = { text: b ? "Saved changes to " + id + "." : "Added " + id + ". Write its NFC tag or print a QR sticker when you're ready." };
       location.hash = id;
-    });
-  }
-
-  // ----- remove a barrel from the list (empty barrels only) -----
-  function removeForm() {
-    const f = formCard("Remove a barrel", "barrels");
-    const sel = el("select");
-    const o0 = el("option", null, "Choose a barrel…"); o0.value = ""; sel.appendChild(o0);
-    DB.order.forEach(id => {
-      const b = DB.barrels[id];
-      const o = el("option", null, vesselName(b) + (b.current ? " · has blend " + b.current.blend + " in it" : " · " + [b.size, b.location].filter(Boolean).join(" · ")));
-      o.value = id; o.disabled = !!b.current; sel.appendChild(o);
-    });
-    add(f, field("Which barrel?", sel, "Only empty barrels can be removed. Bottles already made from it keep their history."));
-    const auth = pinFields(f);
-    const { save, show } = formEnd(f, "Remove barrel", "#barrels");
-    f.addEventListener("submit", async ev => {
-      ev.preventDefault();
-      const id = sel.value, b = DB.barrels[id];
-      if (!b) return show("Choose a barrel.");
-      if (b.current) return show(id + " still has cider in it. Bottle it or empty it first.");
-      if (!confirm("Remove " + vesselName(b) + " from the list?")) return;
-      if (!await pinPost({ kind: "barrel", remove: true, barrel: id }, auth, save, show)) return;
-      FLASH = { text: "Removed " + id + " from the list." };
-      location.hash = "barrels";
     });
   }
 
@@ -1232,8 +1214,7 @@ footer a { color: inherit; }
     let m;
     if (!raw || up === "BARRELS") barrelsTab();
     else if (up === "BARRELS/NEW") barrelForm(null);
-    else if (up === "BARRELS/REMOVE") removeForm();
-    else if ((m = /^([A-Z]\d{2,3})(\/.*)?$/.exec(up)) && DB.barrels[m[1]] && DB.barrels[m[1]].removed) barrelsTab(m[1] + " has been removed from the list.");
+    else if ((m = /^([A-Z]\d{2,3})(\/.*)?$/.exec(up)) && DB.barrels[m[1]] && DB.barrels[m[1]].removed) barrelsTab(m[1] + " has been deleted.");
     else if (up === "BLENDS") blendsTab();
     else if (up === "BLENDS/NEW") blendForm(null);
     else if (up === "BOTTLES") bottlesTab();
