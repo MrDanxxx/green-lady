@@ -88,6 +88,8 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .list a:hover .name { color: var(--green); }
 .list .right { text-align: right; flex: none; }
 .list .row > a { flex: 1; min-width: 0; border-top: 0; padding: 0; }
+.list a.brow { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; }
+.list a.brow .pill { justify-self: center; }
 .list a.edit { flex: none; padding: 6px 12px; border: 1px solid var(--btn); border-radius: 8px; font-size: 14px; font-weight: 600; background: var(--btn); color: #fff; }
 .muted, .empty { color: var(--muted); }
 .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -443,13 +445,16 @@ footer a { color: inherit; }
         const a = el("a"); a.href = "#" + b.id;
         const left = el("div");
         add(left, el("div", "name", vesselName(b)), el("div", "sub", [b.size, b.type].filter(Boolean).join(" · ")));
+        // barrel | blend label (centred) | filled date
         const right = el("div", "right");
+        let pill;
         if (b.current) {
-          right.appendChild(el("span", "pill tag", b.current.blend));
+          pill = el("span", "pill tag", b.current.blend);
           const d = ago(b.current.filled);
           if (d) right.appendChild(el("div", "sub", "filled " + d));
-        } else right.appendChild(el("span", "pill empty", "Empty"));
-        add(a, left, right);
+        } else pill = el("span", "pill empty", "Empty");
+        a.className = "brow";
+        add(a, left, pill, right);
         const ed = el("a", "edit primary", "Edit"); ed.href = "#" + b.id + "/edit";
         ed.setAttribute("aria-label", "Edit " + vesselName(b));
         list.appendChild(add(el("div", "row"), a, ed));
