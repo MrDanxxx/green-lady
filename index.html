@@ -51,6 +51,8 @@ header .vintage { font-family: Fraunces, Georgia, serif; font-size: 18px; color:
 main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
 .card h2 { font-family: Fraunces, Georgia, serif; font-size: 20px; margin: 0 0 12px; color: var(--green); font-weight: 600; }
+.cardhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.cardhead h2 { margin: 0; }
 .card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 16px 0 6px; }
 .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 .head h1 { font-family: Fraunces, Georgia, serif; margin: 0; font-size: 28px; line-height: 1.15; }
@@ -88,6 +90,7 @@ button, .button { font: inherit; font-weight: 600; border-radius: 10px; border: 
 button.primary, .button.primary { background: var(--green); border-color: var(--green); color: var(--card); }
 button:disabled { opacity: .5; cursor: default; }
 .full { width: 100%; }
+button.small { padding: 6px 14px; font-size: 14px; flex: none; }
 form { margin-top: 14px; display: grid; gap: 12px; }
 label { display: grid; gap: 4px; font-size: 14px; font-weight: 600; }
 label small { font-weight: 400; color: var(--muted); }
@@ -594,10 +597,10 @@ footer a { color: inherit; }
     }
 
     // Full barrel: the Notes card, with a + Note button that opens the note box.
-    const c = card("Notes");
+    const c = card(), nb = el("button", "primary small", "+ Note"), noteSlot = el("div");
+    nb.type = "button";
+    c.appendChild(add(el("div", "cardhead"), el("h2", null, "Notes"), nb));
     c.appendChild(notesTable(b.current.events) || el("p", "muted", "No notes yet."));
-    const nb = el("button", "primary full", "+ Note"), noteSlot = el("div");
-    nb.type = "button"; nb.style.marginTop = "12px";
     nb.addEventListener("click", () => {
       nb.hidden = true;
       const f = actionForm(b, "Note", true);
