@@ -603,7 +603,7 @@ footer a { color: inherit; }
 
   // ----- barrel actions -----
   const FIELDS = {
-    Fill:    [["blend", "Which blend?", "blend"], ["yeast", "Yeast", "yeast"], ["note", "Note", "text"]],
+    Fill:    [["blend", "Which blend?", "blend"], ["yeast", "Yeast", "yeast"]],
     Reading: [["gravity", "Gravity", "gravity"], ["ph", "pH", "ph"], ["note", "Note", "text"]],
     Yeast:   [["yeast", "Yeast", "yeast"], ["note", "Amount / note", "text"]],
     Bottled: [["bottles", "How many bottles?", "int"], ["gravity", "Final gravity", "gravity"], ["priming", "Priming sugar", "short", "e.g. 6 g per litre, or none"], ["note", "Note", "text"]],
@@ -873,8 +873,7 @@ footer a { color: inherit; }
     const filled = input(cur.filled || isoToday(), { type: "date" });
     const yeast = input(cur.fillYeast || "", { placeholder: "e.g. SafCider TF-6" });
     suggest(yeast, "dl-yeasts", knownYeasts());
-    const note = el("textarea"); note.value = cur.fillNote || "";
-    add(f, field("Which blend?", blend), field("Date filled", filled), field("Yeast", yeast), field("Note", note));
+    add(f, field("Which blend?", blend), field("Date filled", filled), field("Yeast", yeast));
     const auth = pinFields(f);
     const { save, show } = formEnd(f, "Save changes", "#" + b.id);
 
@@ -884,7 +883,7 @@ footer a { color: inherit; }
       if (!d) return show("Enter the date it was filled.");
       if (d > isoToday()) return show("The fill date can't be in the future.");
       if (!blend.value) return show("Choose a blend.");
-      const body = { kind: "fill", barrel: b.id, blend: blend.value, filled: d, yeast: yeast.value.trim(), note: note.value.trim() };
+      const body = { kind: "fill", barrel: b.id, blend: blend.value, filled: d, yeast: yeast.value.trim(), note: cur.fillNote || "" };   // no note box; keep any existing fill note
       if (!await pinPost(body, auth, save, show)) return;
       FLASH = { text: "Saved fill details for " + b.id + "." };
       location.hash = b.id;
