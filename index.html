@@ -532,6 +532,20 @@ footer a { color: inherit; }
     });
     $main.appendChild(add(c1, f, fmsg));
 
+    // Reprint labels for a batch that's already been bottled (e.g. the printer jammed).
+    const done = Object.values(DB.runs).filter(r => r.bottled).sort((a, b) => (b.bottled || "").localeCompare(a.bottled || ""));
+    if (done.length) {
+      const c2 = card("Reprint bottle labels"), rf = el("form"); rf.style.marginTop = "0";
+      const sel = el("select");
+      done.forEach(r => {
+        const o = el("option", null, "Blend " + r.blend + " · " + r.barrel + " · bottled " + fmtDate(r.bottled) + (r.bottles ? " · " + r.bottles + " bottles" : ""));
+        o.value = r.key; sel.appendChild(o);
+      });
+      add(rf, field("Which batch?", sel), el("button", "primary full", "Reprint labels"));
+      rf.addEventListener("submit", ev => { ev.preventDefault(); location.hash = "print/" + sel.value; });
+      $main.appendChild(add(c2, rf));
+    }
+
   }
 
   // ---------- pages ----------
@@ -901,7 +915,7 @@ footer a { color: inherit; }
   function printPage(run, count) {
     const p = parseCode(run), b = DB.barrels[p.barrel], r = DB.runs[run], bl = DB.blends[p.blend];
     const f = formCard("Print bottle labels", "barrels");
-    const back = el("a", "button soft small", "‹ Back"); back.href = "#" + p.barrel; back.style.marginBottom = "12px";
+    const back = el("a", "button soft small", "‹ Back"); back.href = count ? "#" + p.barrel : "#bottles"; back.style.marginBottom = "12px";
     $main.insertBefore(back, $main.firstChild);
     f.appendChild(el("p", "sub", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(p.blend) + " from " + (b ? vesselName(b) : p.barrel) +
       (r && r.bottled ? " · bottled " + fmtDate(r.bottled) : "") + ". Each label gets its own number (from 1) and QR code for rating."));
