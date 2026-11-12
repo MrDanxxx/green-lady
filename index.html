@@ -560,22 +560,6 @@ footer a { color: inherit; }
     }
     $main.appendChild(actionCard(b));
 
-    const past = b.history.slice().reverse();
-    if (past.length) {
-      const c = card("Previous fills"), list = el("div", "list");
-      past.forEach(f => {
-        const bl = DB.blends[f.blend];
-        const a = el(f.bottled ? "a" : "div", f.bottled ? null : "row");
-        if (f.bottled) a.href = "#" + f.blend + "-" + b.id;
-        const left = el("div");
-        add(left, el("div", "name", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + f.blend),
-            el("div", "sub", [f.filled ? "Filled " + fmtDate(f.filled) : null,
-                              f.bottled ? "Bottled " + fmtDate(f.bottled.date) + (f.bottled.bottles ? " (" + f.bottled.bottles + " bottles)" : "") : "Emptied"].filter(Boolean).join(" · ")));
-        add(a, left, f.bottled ? el("span", "sub", "›") : null);
-        list.appendChild(a);
-      });
-      $main.appendChild(add(c, list));
-    }
     if (b.notes) $main.appendChild(add(card("Barrel notes"), el("p", "notes", b.notes)));
   }
 
