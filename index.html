@@ -50,7 +50,7 @@ header { background: var(--green-deep); color: #f4efe2; text-align: center; padd
 header a { color: inherit; text-decoration: none; }
 header .kicker { font-size: 12px; letter-spacing: .25em; text-transform: uppercase; color: #cfdcc3; }
 header .mark { font-family: Fraunces, Georgia, serif; font-weight: 800; font-size: clamp(28px, 8.4vw, 56px); line-height: 1; margin: 0 0 8px; display: flex; align-items: center; justify-content: center; gap: 12px; }
-header .mark svg { width: .8em; height: .8em; flex: none; }
+header .mark svg { width: .8em; height: .8em; flex: none; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: none; }
 header .vintage { font-family: Fraunces, Georgia, serif; font-size: 18px; color: var(--gold); letter-spacing: .1em; min-height: 1.4em; }
 /* slim header on every page except the Barrels list: kicker and vintage share one line */
 body.slim header { padding: 10px 16px 9px; }
@@ -964,7 +964,7 @@ footer a { color: inherit; }
   }
   const pad2 = n => String(n).padStart(2, "0");
   function isoToday() { const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
-  const SIGNED_OUT = "You’re no longer signed in (the PIN may have changed). Tap “Brewer sign-in” at the bottom of the page.";
+  const SIGNED_OUT = "You’re no longer signed in (the PIN may have changed). Press and hold the apple at the top of the page to sign in again.";
   function pinFields(f) {   // no boxes any more: the name and PIN saved when this phone signed in
     return { by: { value: store.get("gl-name") || "" }, pin: { value: store.get("gl-pin") || "" } };
   }
@@ -1018,8 +1018,7 @@ footer a { color: inherit; }
       const out = el("button", null, "Sign out"); out.type = "button";
       out.addEventListener("click", () => { store.del("gl-pin"); FLASH = { text: "Signed out. Sign in again to make changes." }; route(); });
       w.replaceChildren(document.createTextNode("Signed in" + (store.get("gl-name") ? " as " + store.get("gl-name") : "") + " · "), out);
-    } else if (/^signin/i.test(raw)) w.replaceChildren();
-    else { const a = el("a", null, "Brewer sign-in"); a.href = "#signin/" + raw; w.replaceChildren(a); }
+    } else w.replaceChildren();   // not signed in: no sign-in link (press and hold the apple instead)
   }
   function formCard(title, tab) {
     page(title, tab);
@@ -1786,7 +1785,12 @@ footer a { color: inherit; }
     const brewerOnly = BREWER_ONLY.test(up);
     whoLine(raw);
     if (/^SIGNIN(\/|$)/.test(up)) signInPage(raw.replace(/^signin\/?/i, ""));
-    else if (brewerOnly && !crew()) signInPage(raw);
+    else if (brewerOnly && !crew()) {
+      const bm = /^([A-Z]\d{2,3})\//.exec(up), lm = /^BLEND\/([^/]+)\/EDIT$/.exec(up), pm = /^(?:PRINT|LABELS)\/([^/]+)/.exec(up);
+      const to = bm && DB.barrels[bm[1]] ? bm[1] : lm && DB.blends[lm[1]] ? "blend/" + lm[1] : pm && parseCode(pm[1]) ? "bottles" : /^BOTTLES/.test(up) ? "bottles" : "barrels";
+      history.replaceState(null, "", "#" + to);
+      return route();
+    }
     else if (!raw || up === "BARRELS") barrelsTab();
     else if (up === "BARRELS/NEW") barrelForm(null);
     else if ((m = /^([A-Z]\d{2,3})(\/.*)?$/.exec(up)) && DB.barrels[m[1]] && DB.barrels[m[1]].removed) barrelsTab(m[1] + " has been deleted.");
@@ -1818,6 +1822,24 @@ footer a { color: inherit; }
       FLASH = null;
     }
   }
+
+  // Hidden way in for the brewer: press and hold the apple in the header for about 2 seconds.
+  (function () {
+    const apple = document.querySelector("header .mark svg");
+    let timer = null, fired = false;
+    const stop = () => { clearTimeout(timer); timer = null; };
+    apple.addEventListener("pointerdown", () => {
+      fired = false; stop();
+      timer = setTimeout(() => {
+        fired = true; timer = null;
+        if (!crew()) location.hash = "signin/" + decodeURIComponent(location.hash.slice(1));
+      }, 2000);
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(t => apple.addEventListener(t, stop));
+    apple.addEventListener("contextmenu", ev => ev.preventDefault());   // no long-press menu on phones
+    // after a long press, don't also follow the header's link to the Barrels list
+    apple.closest("a").addEventListener("click", ev => { if (fired) { ev.preventDefault(); fired = false; } });
+  })();
 
   window.addEventListener("hashchange", route);
   load().then(route).catch(() => {
