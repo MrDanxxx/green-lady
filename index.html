@@ -72,6 +72,10 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .qr-row { display: flex; gap: 14px; align-items: center; }
 .qr-pic { flex: none; padding: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; line-height: 0; }
 .qr-row .sub { margin: 0; }
+.sugg { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; max-height: 240px; overflow-y: auto; margin-top: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.15); }
+.sugg .pick { padding: 9px 12px; font-size: 15px; }
+.sugg .pick.on { padding: 8px 11px; }
+.sugg-t { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 2px 4px 0; }
 .dd-grid { grid-template-columns: repeat(6, 1fr); }
 .dd-grid .pick { justify-items: center; text-align: center; padding: 10px 0; }
 .pick { display: grid; gap: 2px; text-align: left; padding: 10px 12px; background: var(--input); border: 1px solid var(--line); border-radius: 10px; font-weight: 400; }
@@ -305,6 +309,7 @@ footer a { color: inherit; }
   // ---------- data ----------
   function build(raw) {
     const blends = {}, barrels = {}, order = [], runs = {}, ratings = {}, bottleRatings = {}, reviews = {};
+    const used = { names: [], primings: [] };   // for "used before" suggestions
     (raw.Blends || []).forEach(r => {
       if (!r.Blend) return;
       const id = tidy(r.Blend).toUpperCase();
@@ -335,6 +340,8 @@ footer a { color: inherit; }
       action = action ? action.charAt(0).toUpperCase() + action.slice(1).toLowerCase() : (blendId ? "Fill" : "Note");
       const ev = { date: day(e.Time), action, blend: blendId, yeast: tidy(e.Yeast), gravity: numv(e.Gravity), ph: numv(e.pH),
                    bottles: numv(e.Bottles), priming: tidy(e.Priming), location: tidy(e.Location), note: String(e.Notes || e.Note || "").trim(), by: tidy(e.By) };
+      if (ev.by) used.names.push(ev.by);
+      if (ev.priming) used.primings.push(ev.priming);
       switch (ev.action) {
         case "Fill":
           if (b.current) b.history.push(b.current);
@@ -383,7 +390,7 @@ footer a { color: inherit; }
         String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => b.tags[t] = (b.tags[t] || 0) + 1);
       }
     });
-    return { blends, barrels, order, runs, ratings, bottleRatings, reviews };
+    return { blends, barrels, order, runs, ratings, bottleRatings, reviews, used };
   }
   function lastGravity(events) {
     const g = (events || []).filter(e => e.gravity != null);
@@ -875,13 +882,34 @@ footer a { color: inherit; }
     if (value != null) i.value = value;
     return i;
   }
-  function suggest(inp, id, values) {   // typing suggestions from what's already in the records
-    let dl = document.getElementById(id);
-    if (!dl) {
-      dl = el("datalist"); dl.id = id; $main.appendChild(dl);
-      [...new Set(values.map(tidy).filter(Boolean))].sort().forEach(v => { const o = el("option"); o.value = v; dl.appendChild(o); });
-    }
-    inp.setAttribute("list", id);
+  // "Used before" list drawn by the page under a box: tap one to fill it in, or just type something new.
+  function suggest(inp, id, values) {
+    const vals = [...new Set(values.map(v => tidy(String(v == null ? "" : v))).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    if (!vals.length) return;
+    inp.autocomplete = "off";
+    const menu = el("div", "dd-menu sugg"); menu.hidden = true;
+    menu.addEventListener("pointerdown", ev => ev.preventDefault());   // keep the keyboard/focus while tapping
+    const render = () => {
+      const q = inp.value.trim().toLowerCase();
+      const exact = vals.some(v => v.toLowerCase() === q);
+      const list = exact || !q ? vals : vals.filter(v => v.toLowerCase().includes(q));
+      menu.replaceChildren(el("div", "sugg-t", "Used before"));
+      list.forEach(v => {
+        const o = el("button", "pick" + (v.toLowerCase() === q ? " on" : ""), v); o.type = "button";
+        o.addEventListener("click", () => {
+          inp.value = v; menu.hidden = true;
+          inp.dispatchEvent(new Event("input", { bubbles: true })); menu.hidden = true;
+        });
+        menu.appendChild(o);
+      });
+      menu.hidden = !list.length || document.activeElement !== inp;
+    };
+    inp.addEventListener("focus", () => {
+      if (!menu.isConnected) { inp.parentNode.style.position = "relative"; inp.after(menu); }
+      render();
+    });
+    inp.addEventListener("input", () => { if (document.activeElement === inp) render(); });
+    inp.addEventListener("blur", () => { menu.hidden = true; });
   }
   function knownYeasts() {
     const ys = [];
@@ -901,6 +929,7 @@ footer a { color: inherit; }
   function isoToday() { const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
   function pinFields(f) {
     const by = input(store.get("gl-name") || "", { autocomplete: "given-name" });
+    suggest(by, "dl-names", DB.used.names);
     const pin = input(store.get("gl-pin") || "", { type: "password", inputMode: "numeric" });
     add(f, add(el("div", "two"), field("Your name", by), field("PIN NUMBER", pin)));
     return { by, pin };
@@ -957,6 +986,7 @@ footer a { color: inherit; }
       f.appendChild(field("Barrel number", idIn, "B for barrels, D for demijohns, e.g. B21 or D03"));
     }
     const size = input(b ? String(b.size).replace(/\s*(l|ltr|litres?|liters?)\.?$/i, "") : "", { inputMode: "decimal", placeholder: "e.g. 30" });
+    suggest(size, "dl-sizes", DB.order.map(id => String(DB.barrels[id].size || "").replace(/\s*(l|ltr|litres?|liters?)\.?$/i, "")));
     const type = input(b ? b.type : "", { placeholder: "e.g. Plastic" });
     suggest(type, "dl-types", ["Plastic", "Glass demijohn", "Oak", "Stainless steel"].concat(DB.order.map(id => DB.barrels[id].type)));
     const loc = input(b ? b.location : "", { placeholder: "e.g. Greenacres" });
@@ -1023,6 +1053,7 @@ footer a { color: inherit; }
     const fg = input("", { inputMode: "decimal", placeholder: "e.g. 1.000" });
     const abvOut = el("small", null, "");
     const priming = input("", { placeholder: "e.g. 6 g per litre, or none" });
+    suggest(priming, "dl-priming", DB.used.primings);
     const fgField = field("Final gravity", fg); fgField.appendChild(abvOut);
     fg.addEventListener("input", () => {
       const g = Number(gravityVal(fg.value));
