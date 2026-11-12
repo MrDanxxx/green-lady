@@ -597,7 +597,7 @@ footer a { color: inherit; }
   // Empty barrel: Fill (location changes via Edit barrel details).
   function crewCard(b) {
     const btns = el("div", "btns"), slot = el("div");
-    const actions = b.current ? ["Reading", "Yeast", "Bottled", "Moved", "Empty"] : ["Fill"];
+    const actions = b.current ? ["Reading", "Yeast", "Bottled", "Empty"] : ["Fill"];
     actions.forEach((a, i) => {
       const bt = el("button", !b.current && i === 0 ? "primary" : null, LABEL[a]);
       bt.type = "button";
@@ -610,7 +610,7 @@ footer a { color: inherit; }
 
     const c = card("Add a note");
     const f = crewForm(b, "Note", true);
-    const more = el("details", "more"), sum = el("summary", null, "More: reading, yeast, bottled, moved, emptied");
+    const more = el("details", "more"), sum = el("summary", null, "More: reading, yeast, bottled, emptied");
     add(more, sum, btns, ed, slot);
     return add(c, f, more);
   }
