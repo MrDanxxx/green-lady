@@ -42,7 +42,7 @@ const ALIASES = {
   Ratings: { Time: ["date"] },
 };
 const ACTIONS = ["Fill", "Reading", "Moved", "Bottled", "Note", "Empty"];
-const RATINGS = ["Good", "OK", "Poor"];
+const RATINGS = ["Superb", "Good", "OK", "Meh", "Poor"];   // 5 ratings, best first
 
 function setup() {
   const ss = SpreadsheetApp.getActive();

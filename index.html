@@ -140,13 +140,10 @@ select.unset option { color: var(--ink); font-style: normal; }
 .msg { padding: 10px 12px; border-radius: 8px; font-size: 14px; }
 .msg.ok { background: var(--pill); color: var(--green); }
 .msg.err { background: color-mix(in srgb, var(--poor) 15%, transparent); color: var(--poor); }
-.rate { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.rate button { padding: 14px 6px; font-size: 15px; display: grid; gap: 4px; justify-items: center; }
-.rate button .e { font-size: 30px; line-height: 1; }
-.rate button.on { border-width: 2px; }
-.rate button.on.Good { border-color: var(--good); color: var(--good); }
-.rate button.on.OK { border-color: var(--ok); color: var(--ok); }
-.rate button.on.Poor { border-color: var(--poor); color: var(--poor); }
+.rate { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.rate button { padding: 10px 2px; font-size: 12px; font-weight: 600; display: grid; gap: 4px; justify-items: center; align-content: start; line-height: 1.2; }
+.rate button .e { font-size: 26px; line-height: 1; }
+.rate button.on { border-width: 2px; border-color: var(--c); color: var(--c); }
 .more { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
 .more summary { cursor: pointer; color: var(--green); font-weight: 600; font-size: 14px; }
 .more[open] summary { margin-bottom: 12px; }
@@ -225,7 +222,16 @@ footer a { color: inherit; }
   const SITE = "https://mrdanxxx.github.io/green-lady/";
   const QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
   const TAGS = ["Great", "Flat", "Too fizzy", "Sour", "Cloudy", "Too dry", "Too sweet", "Off smell"];
-  const RATE = [["Good", "👍", "Loved it"], ["OK", "👌", "OK"], ["Poor", "👎", "Not for me"]];
+  // 5 ratings, best first: [stored value, emoji, label, score 0..1, colour]
+  const RATE = [
+    ["Superb", "🤩", "Superb", 1, "var(--good)"],
+    ["Good", "😋", "Good", 0.75, "color-mix(in srgb, var(--good) 50%, var(--ok))"],
+    ["OK", "🙂", "OK", 0.5, "var(--ok)"],
+    ["Meh", "😕", "Not great", 0.25, "color-mix(in srgb, var(--ok) 50%, var(--poor))"],
+    ["Poor", "👎", "Not for me", 0, "var(--poor)"]];
+  const RKEYS = RATE.map(r => r[0]);
+  const newAgg = () => { const a = { n: 0, tags: {} }; RKEYS.forEach(k => a[k] = 0); return a; };
+  const addAgg = (t, a) => [...RKEYS, "n"].forEach(x => t[x] += a[x]);
   const $main = document.getElementById("main");
   let DB = null;
   let FLASH = null;   // "Saved" message shown at the top of the next page drawn
@@ -353,15 +359,15 @@ footer a { color: inherit; }
     });
     (raw.Ratings || []).forEach(r => {
       const p = parseCode(r.Bottle);
-      if (!p || !["Good", "OK", "Poor"].includes(r.Rating)) return;
+      if (!p || !RKEYS.includes(r.Rating)) return;
       const k = p.run;
-      const a = ratings[k] || (ratings[k] = { Good: 0, OK: 0, Poor: 0, n: 0, tags: {} });
+      const a = ratings[k] || (ratings[k] = newAgg());
       a[r.Rating]++; a.n++;
       String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => a.tags[t] = (a.tags[t] || 0) + 1);
       if (!runs[k]) runs[k] = { key: k, blend: p.blend, barrel: p.barrel };
       if (p.n) (reviews[p.code] ||= []).push({ rating: r.Rating, tags: tidy(r.Tags), name: tidy(r.Name), comment: String(r.Comment || "").trim(), date: day(r.Time), row: r.Row });
       if (p.n) {   // each numbered bottle, for the Bottle rating table
-        const b = bottleRatings[p.code] || (bottleRatings[p.code] = { code: p.code, blend: p.blend, barrel: p.barrel, n: 0, Good: 0, OK: 0, Poor: 0, tags: {} });
+        const b = bottleRatings[p.code] || (bottleRatings[p.code] = Object.assign(newAgg(), { code: p.code, blend: p.blend, barrel: p.barrel }));
         b[r.Rating]++; b.n++;
         String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => b.tags[t] = (b.tags[t] || 0) + 1);
       }
@@ -380,7 +386,7 @@ footer a { color: inherit; }
     const r = await fetch(API, { method: "POST", body: JSON.stringify(body) });
     return r.json();
   }
-  const score = a => a && a.n ? (a.Good + a.OK * 0.5) / a.n : null;
+  const score = a => a && a.n ? RATE.reduce((s, r) => s + (a[r[0]] || 0) * r[3], 0) / a.n : null;
 
   // ---------- shared blocks ----------
   function applesCard(blend) {
@@ -430,12 +436,12 @@ footer a { color: inherit; }
     const wrap = el("div");
     if (!a || !a.n) { wrap.appendChild(el("div", "muted", "No ratings yet.")); return wrap; }
     const bar = el("div", "bar");
-    [["Good", "--good"], ["OK", "--ok"], ["Poor", "--poor"]].forEach(([k, c]) => {
+    RATE.forEach(([k, , , , c]) => {
       if (!a[k]) return;
-      const s = el("span"); s.style.width = (a[k] / a.n * 100) + "%"; s.style.background = "var(" + c + ")"; bar.appendChild(s);
+      const s = el("span"); s.style.width = (a[k] / a.n * 100) + "%"; s.style.background = c; bar.appendChild(s);
     });
     wrap.appendChild(bar);
-    wrap.appendChild(el("div", "sub", a.n + (a.n === 1 ? " rating: " : " ratings: ") + "👍 " + a.Good + " · 👌 " + a.OK + " · 👎 " + a.Poor));
+    wrap.appendChild(el("div", "sub", a.n + (a.n === 1 ? " rating: " : " ratings: ") + RATE.filter(r => a[r[0]]).map(r => r[1] + " " + a[r[0]]).join(" · ")));
     const tags = Object.entries(a.tags).sort((x, y) => y[1] - x[1]).slice(0, 4);
     if (tags.length) wrap.appendChild(el("div", "sub", "Most said: " + tags.map(([t, n]) => t + " (" + n + ")").join(", ")));
     return wrap;
@@ -1248,10 +1254,10 @@ footer a { color: inherit; }
     if (!blend) top.appendChild(el("p", "muted", "No details for this blend yet."));
     $main.appendChild(top);
 
-    const bad = bottleProblem(p);   // e.g. a mistyped code or a link to a bottle that doesn't exist
-    $main.appendChild(bad ? add(card("How was it?"), el("div", "msg err", bad + " Check the code on the label.")) : rateCard(p));
     add($main, yeastCard(run && run.yeasts, (run && run.yeast) || (blend && blend.yeast)));   // no apples box on bottle pages
     if (run && (run.priming || run.note)) $main.appendChild(add(card("Bottling"), el("p", "notes", [run.priming ? "Priming: " + run.priming : "", run.note].filter(Boolean).join("\n"))));
+    const bad = bottleProblem(p);   // e.g. a mistyped code or a link to a bottle that doesn't exist
+    $main.appendChild(bad ? add(card("How was it?"), el("div", "msg err", bad + " Check the code on the label.")) : rateCard(p));   // rating goes last, below Bottling
   }
 
   function rateCard(p) {
@@ -1279,7 +1285,7 @@ footer a { color: inherit; }
     const prev = store.get(key);
     const agg = DB.ratings[p.run];
     if (prev) {   // one rating per bottle per phone; it can't be changed
-      c.appendChild(el("p", null, "Thanks – you rated this bottle " + (RATE.find(r => r[0] === prev) || ["", "", prev])[1] + " " + prev + "."));
+      c.appendChild(el("p", null, "Thanks – you rated this bottle " + (RATE.find(r => r[0] === prev) || ["", "", prev])[1] + " " + (RATE.find(r => r[0] === prev) || ["", "", prev])[2] + "."));
       c.appendChild(el("h3", null, "What everyone thought of this batch"));
       c.appendChild(ratingBar(agg));
       return c;
@@ -1287,8 +1293,8 @@ footer a { color: inherit; }
     let choice = null;
     const tags = new Set();
     const row = el("div", "rate");
-    RATE.forEach(([k, e, label]) => {
-      const bt = el("button", k); bt.type = "button";
+    RATE.forEach(([k, e, label, , col]) => {
+      const bt = el("button", k); bt.type = "button"; bt.style.setProperty("--c", col);
       add(bt, el("span", "e", e), el("span", null, label));
       bt.addEventListener("click", () => {
         choice = k;
@@ -1317,7 +1323,6 @@ footer a { color: inherit; }
     add(f, ln, lc, send, msg);
     extra.appendChild(f);
     c.appendChild(extra);
-    if (agg && agg.n) { c.appendChild(el("h3", null, "So far")); c.appendChild(ratingBar(agg)); }
 
     f.addEventListener("submit", async ev => {
       ev.preventDefault();
@@ -1399,8 +1404,8 @@ footer a { color: inherit; }
       const byBlend = {};
       Object.keys(DB.ratings).forEach(k => {
         const a = DB.ratings[k], r = DB.runs[k]; if (!a.n || !r) return;
-        const t = byBlend[r.blend] || (byBlend[r.blend] = { Good: 0, OK: 0, Poor: 0, n: 0, tags: {} });
-        ["Good", "OK", "Poor", "n"].forEach(x => t[x] += a[x]);
+        const t = byBlend[r.blend] || (byBlend[r.blend] = newAgg());
+        addAgg(t, a);
         Object.entries(a.tags).forEach(([x, v]) => t.tags[x] = (t.tags[x] || 0) + v);
       });
       rows = Object.keys(byBlend).map(id => {
@@ -1517,10 +1522,10 @@ footer a { color: inherit; }
     // heading + this entry's rating
     let agg, title;
     if (kind === "blend") {
-      agg = { Good: 0, OK: 0, Poor: 0, n: 0, tags: {} };
+      agg = newAgg();
       Object.keys(DB.ratings).forEach(k => {
         const r = DB.runs[k], a = DB.ratings[k]; if (!r || r.blend !== blendId) return;
-        ["Good", "OK", "Poor", "n"].forEach(x => agg[x] += a[x]);
+        addAgg(agg, a);
         Object.entries(a.tags).forEach(([x, v]) => agg.tags[x] = (agg.tags[x] || 0) + v);
       });
       title = (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(blendId);
