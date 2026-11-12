@@ -132,6 +132,35 @@ function doPost(e) {
       return reply({ ok: true });
     }
 
+    // Correct the barrel's latest Fill row (blend, date, yeast, note).
+    if (d.kind === "fill") {
+      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong PIN number" });
+      const id = clean(d.barrel, 10).toUpperCase();
+      const sh = tab(ss, "Log");
+      const cols = columnsFor(sh, "Log", { Time: 1, Barrel: 1, Action: 1, Blend: 1, Yeast: d.yeast, Notes: d.note });
+      const w = cols.where;
+      const n = sh.getLastRow() - 1;
+      if (n < 1) return reply({ ok: false, error: id + " has no fill in the Sheet" });
+      const rows = sh.getRange(2, 1, n, cols.head.length).getValues();
+      let row = 0;
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const act = String(rows[i][w.Action] || "").trim().toLowerCase(), blend = String(rows[i][w.Blend] || "").trim();
+        if (String(rows[i][w.Barrel]).trim().toUpperCase() === id && (act === "fill" || (!act && blend))) { row = i + 2; break; }
+      }
+      if (!row) return reply({ ok: false, error: id + " has no fill in the Sheet" });
+      const set = function (k, v) { if (k in w) sh.getRange(row, w[k] + 1).setValue(v); };
+      set("Blend", clean(d.blend, 20).toUpperCase());
+      set("Yeast", clean(d.yeast, 60));
+      set("Notes", clean(d.note, 500));
+      const day = dayDate(d.filled);
+      if (day) {   // keep the original time of day so the order of the Log stays the same
+        const old = sh.getRange(row, w.Time + 1).getValue();
+        if (old instanceof Date) day.setHours(old.getHours(), old.getMinutes(), old.getSeconds());
+        set("Time", day);
+      }
+      return reply({ ok: true });
+    }
+
     if (d.kind === "blend") {
       if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong PIN number" });
       const id = clean(d.blend, 10).toUpperCase();
