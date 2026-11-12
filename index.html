@@ -628,7 +628,10 @@ footer a { color: inherit; }
   }
   function finishCard(b) {
     const btns = el("div", "btns"), slot = el("div");
-    ["Bottled", "Empty"].forEach(a => {
+    const bo = el("a", "button primary", LABEL.Bottled);   // its own page
+    bo.href = "#" + b.id + "/bottle";
+    btns.appendChild(bo);
+    ["Empty"].forEach(a => {
       const bt = el("button", "primary", LABEL[a]);
       bt.type = "button";
       bt.addEventListener("click", () => { slot.replaceChildren(actionForm(b, a)); slot.scrollIntoView({ behavior: "smooth", block: "start" }); });
@@ -873,6 +876,65 @@ footer a { color: inherit; }
   }
 
   // ----- edit the current fill (blend, date filled, yeast, fill note) -----
+  // ----- Bottle it: its own page with what you need, a back button, and the labels -----
+  function bottleForm(b) {
+    const cur = b.current, blend = DB.blends[cur.blend], run = cur.blend + "-" + b.id;
+    const f = formCard("Bottle " + vesselName(b), "barrels");
+    const back = el("a", "button soft small", "‹ Back"); back.href = "#" + b.id; back.style.marginBottom = "12px";
+    $main.insertBefore(back, $main.firstChild);
+
+    // what's in the barrel
+    const info = card(), grid = el("div", "stats");
+    grid.style.marginTop = "0";
+    stat(grid, "Blend", cur.blend, blend ? blend.apples.map(x => x.variety).join(", ") : null, true);
+    stat(grid, "Filled", fmtDate(cur.filled), ago(cur.filled), true);
+    if (blend && blend.gravity != null) stat(grid, "Starting gravity", sg(blend.gravity));
+    const lg = lastGravity(cur.events);
+    if (lg != null) stat(grid, "Latest gravity", sg(lg));
+    if (cur.yeast) stat(grid, "Yeast", cur.yeast, null, true);
+    if (b.size) stat(grid, "Barrel size", b.size, null, true);
+    info.appendChild(grid);
+    $main.insertBefore(info, f.parentNode);
+
+    const bottles = input("", { inputMode: "numeric", placeholder: "e.g. 23" });
+    const fg = input("", { inputMode: "decimal", placeholder: "e.g. 1.000" });
+    const abvOut = el("small", null, "");
+    const priming = input("", { placeholder: "e.g. 6 g per litre, or none" });
+    const note = el("textarea"); note.placeholder = "e.g. Nice and clear";
+    const fgField = field("Final gravity", fg); fgField.appendChild(abvOut);
+    fg.addEventListener("input", () => {
+      const g = Number(gravityVal(fg.value));
+      abvOut.textContent = blend && blend.gravity != null && g && isFinite(g) && g < blend.gravity ? "≈ " + abv(blend.gravity, g).toFixed(1) + "% ABV" : "";
+    });
+    add(f, add(el("div", "two"), field("How many bottles?", bottles), fgField), field("Priming sugar", priming), field("Note", note));
+
+    // labels
+    const first = input("1", { inputMode: "numeric" });
+    const mk = el("button", "primary full", "Make labels"); mk.type = "button";
+    const lbox = add(el("div", "confirm"), el("h3", null, "Print bottle labels"), field("First number", first, "Uses “How many bottles?” above. Batch " + run), mk);
+    lbox.querySelector("h3").style.marginTop = "0";
+    f.appendChild(lbox);
+
+    const auth = pinFields(f);
+    const { save, show } = formEnd(f, "Bottle it", "#" + b.id);
+    mk.addEventListener("click", () => {
+      const n = parseInt(bottles.value, 10);
+      if (!n) return show("Enter how many bottles first.");
+      location.hash = "labels/" + run + "/" + n + "/" + (parseInt(first.value, 10) || 1);
+    });
+    f.addEventListener("submit", async ev => {
+      ev.preventDefault();
+      const n = bottles.value.trim(), g = gravityVal(fg.value);
+      if (n && !/^\d+$/.test(n)) return show("How many bottles should be a number.");
+      if (g && !isFinite(Number(g))) return show("That gravity doesn't look like a number.");
+      const body = { kind: "log", action: "Bottled", barrel: b.id, blend: cur.blend, bottles: n, gravity: g, priming: priming.value.trim(), note: note.value.trim() };
+      if (!await pinPost(body, auth, save, show)) return;
+      FLASH = { text: "Bottled: " + b.id + "." };
+      if (n) FLASH.link = { text: "Print " + n + " bottle labels", href: "#labels/" + run + "/" + n };
+      location.hash = b.id;
+    });
+  }
+
   // One page for both: Fill this barrel (empty barrel) and Edit fill details (full barrel).
   function fillForm(b) {
     const cur = b.current;
@@ -1261,6 +1323,7 @@ footer a { color: inherit; }
     else if ((m = /^BLEND\/([^/]+)$/.exec(up)) && DB.blends[m[1]]) blendPage(m[1]);
     else if ((m = /^([A-Z]\d{2,3})\/EDIT$/.exec(up)) && DB.barrels[m[1]]) barrelForm(DB.barrels[m[1]]);
     else if ((m = /^([A-Z]\d{2,3})\/FILL$/.exec(up)) && DB.barrels[m[1]]) fillForm(DB.barrels[m[1]]);
+    else if ((m = /^([A-Z]\d{2,3})\/BOTTLE$/.exec(up)) && DB.barrels[m[1]]) { const bb = DB.barrels[m[1]]; if (bb.current) bottleForm(bb); else barrelPage(bb); }
     else if (DB.barrels[up]) barrelPage(DB.barrels[up]);
     else if (parseCode(up)) bottlePage(parseCode(up));
     else if (DB.blends[up]) blendPage(up);
