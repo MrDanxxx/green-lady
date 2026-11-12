@@ -1413,7 +1413,7 @@ footer a { color: inherit; }
     // the blend
     const cb = card("The blend" + (bl ? " · " + blendId : "")), gb = el("div", "stats");
     gb.style.marginTop = "0";
-    if (bl) { blendStats(gb, bl); if (bl.yeast) stat(gb, "Yeast", bl.yeast, null, true); }
+    if (bl) { blendStats(gb, bl); if (bl.yeast && kind === "blend") stat(gb, "Yeast", bl.yeast, null, true); }   // barrel/bottle pages have The yeast box
     if (gb.children.length) cb.appendChild(gb); else cb.appendChild(el("p", "muted", "No details for this blend yet."));
     $main.appendChild(cb);
     add($main, applesCard(bl));
@@ -1422,15 +1422,29 @@ footer a { color: inherit; }
       return;
     }
 
-    // the barrel
+    // the barrel: same as the barrel's own page (dates, yeast, notes) for this fill
+    let fill = run && run.events ? run : null;
+    if (!fill && br) fill = [br.current, ...br.history.slice().reverse()].find(f => f && f.blend === p.blend) || null;
     const cr = card("The barrel · " + p.barrel), gr = el("div", "stats");
     gr.style.marginTop = "0";
     if (br) { stat(gr, "Barrel", [br.size, br.type].filter(Boolean).join(" · ") || null, br.location || null, true); }
-    if (run && run.filled) stat(gr, "Filled", fmtDate(run.filled), null, true);
-    if (run && run.filled && run.bottled) { const m = months(run.filled, run.bottled); if (m != null) stat(gr, "Time in barrel", m < 1.5 ? Math.round(m * 30.44) + " days" : m.toFixed(1) + " months"); }
-    if (run && run.yeast) stat(gr, "Yeast used", run.yeast, null, true);
+    if (fill && fill.filled) stat(gr, "Filled", fmtDate(fill.filled), ago(fill.filled), true);
+    const bottledOn = run && run.bottled;
+    if (fill && fill.filled) {
+      const m = months(fill.filled, bottledOn || undefined);
+      if (m != null) stat(gr, bottledOn ? "Time in barrel" : "In barrel so far", m < 1.5 ? Math.round(m * 30.44) + " days" : m.toFixed(1) + " months");
+    }
+    const lg = fill ? lastGravity(fill.events) : null;
+    if (lg != null && !(run && run.fg != null)) {
+      stat(gr, "Latest gravity", sg(lg));
+      if (bl && bl.gravity != null && lg < bl.gravity) stat(gr, "ABV so far", abv(bl.gravity, lg).toFixed(1) + "%", "From gravity drop");
+    }
     if (gr.children.length) cr.appendChild(gr); else cr.appendChild(el("p", "muted", "No barrel details."));
     $main.appendChild(cr);
+    add($main, yeastCard(fill && fill.yeasts, (fill && fill.yeast) || (bl && bl.yeast)));
+    const cn = card("Notes");
+    cn.appendChild((fill && notesTable(fill.events)) || el("p", "muted", "No notes."));
+    $main.appendChild(cn);
 
     // the bottling
     const ct = card("The bottling"), gt = el("div", "stats");
