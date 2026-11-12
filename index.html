@@ -14,6 +14,7 @@
   Green Lady cider - barrel and bottle pages.
   Data lives in the owner's Google Sheet, served by a Google Apps Script web app (see apps-script/Code.gs).
   Links:
+    #barrels  #blends  #bottles   the three tabs   (#barrels/new, #blends/new, #B07/edit, #blend/26A/edit = crew forms)
     #B07            barrel page (NFC tag / QR on the barrel)
     #26A-B07-031    bottle page + rating (QR label on the bottle; the -031 bottle number is optional)
     #league         league table of bottling runs
@@ -111,6 +112,17 @@ textarea { min-height: 70px; resize: vertical; }
 .codebox input { text-transform: uppercase; }
 footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 16px 32px; }
 footer a { color: inherit; }
+.tabs { position: sticky; top: 0; z-index: 5; display: flex; justify-content: center; background: var(--card); border-bottom: 1px solid var(--line); }
+.tabs a { flex: 1; max-width: 214px; text-align: center; padding: 14px 6px 11px; font-weight: 600; color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; }
+.tabs a.on { color: var(--green); border-bottom-color: var(--green); }
+.msg.gap { margin-bottom: 16px; }
+.applerows { display: grid; gap: 10px; }
+.applerow { display: grid; grid-template-columns: 1fr 72px 44px; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.applerow .loc { grid-column: 1 / -1; }
+.applerow button { padding: 0; font-size: 20px; font-weight: 400; color: var(--muted); }
+.total { font-size: 14px; color: var(--muted); }
+.total.bad { color: var(--poor); }
+.formcard h3:first-child { margin-top: 0; }
 /* Labels */
 .sheet { background: #fff; color: #000; width: 210mm; padding: 15.1mm 7.2mm 0; display: grid; grid-template-columns: repeat(3, 63.5mm); grid-auto-rows: 38.1mm; column-gap: 2.5mm; margin: 0 auto; }
 .lab { display: flex; align-items: center; gap: 2.5mm; padding: 2.5mm 3mm; overflow: hidden; font-family: Inter, sans-serif; border: 1px dashed #ddd; }
@@ -141,12 +153,17 @@ footer a { color: inherit; }
     <div class="vintage" id="vintage"></div>
   </a>
 </header>
+<nav class="tabs noprint" id="tabs" aria-label="Sections">
+  <a href="#barrels" data-tab="barrels">Barrels</a>
+  <a href="#blends" data-tab="blends">Blends</a>
+  <a href="#bottles" data-tab="bottles">Bottles</a>
+</nav>
 
 <main id="main" aria-live="polite">
   <section class="card"><div class="empty">Loading…</div></section>
 </main>
 
-<footer>Green Lady cider · made at home, drink responsibly · <a href="#">home</a> · <a href="#league">league table</a></footer>
+<footer>Green Lady cider · made at home, drink responsibly · <a href="#league">league table</a></footer>
 
 <script>
 (function () {
@@ -157,6 +174,7 @@ footer a { color: inherit; }
   const RATE = [["Good", "👍", "Loved it"], ["OK", "👌", "OK"], ["Poor", "👎", "Not for me"]];
   const $main = document.getElementById("main");
   let DB = null;
+  let FLASH = null;   // "Saved" message shown at the top of the next page drawn
 
   // ---------- small helpers ----------
   const store = {
@@ -341,46 +359,46 @@ footer a { color: inherit; }
     return wrap;
   }
 
-  // ---------- pages ----------
-  function home(message) {
+  // ---------- tabs ----------
+  function setTab(name) {
+    document.querySelectorAll("#tabs a").forEach(a => a.classList.toggle("on", a.dataset.tab === name));
+  }
+  function page(title, tab) {
+    setTab(tab);
     setVintage(null);
-    document.title = "Green Lady Cider";
+    document.title = title ? title + " · Green Lady" : "Green Lady Cider";
     $main.replaceChildren();
+  }
+  function tabHead(title, sub, btnText, href) {
+    const c = card(), head = el("div", "head"), h = el("div");
+    add(h, el("h1", null, title), sub ? el("div", "sub", sub) : null);
+    head.appendChild(h);
+    if (btnText) { const a = el("a", "button primary", btnText); a.href = href; head.appendChild(a); }
+    return add(c, head);
+  }
+  function whereBlend(id) {
+    return DB.order.filter(b => DB.barrels[b].current && DB.barrels[b].current.blend === id);
+  }
 
-    const c1 = card("Got a bottle?");
-    c1.appendChild(el("p", "sub", "Scan the label, or type the code from the cap or label (e.g. 26A-B07)."));
-    const f = el("form", "codebox"), inp = el("input");
-    inp.placeholder = "26A-B07"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Bottle code");
-    const go = el("button", "primary", "Go");
-    f.style.marginTop = "0";
-    add(f, inp, go);
-    const fmsg = el("div", "msg err"); fmsg.hidden = true;
-    f.addEventListener("submit", ev => {
-      ev.preventDefault();
-      const v = inp.value.trim().toUpperCase();
-      const p = parseCode(v);
-      if (p) location.hash = p.code;
-      else if (DB.barrels[v]) location.hash = v;
-      else { fmsg.textContent = "That code isn't recognised. It looks like 26A-B07."; fmsg.hidden = false; }
-    });
-    add(c1, f, fmsg);
-    $main.appendChild(c1);
+  function barrelsTab(message) {
+    page("Barrels", "barrels");
+    if (message) $main.appendChild(el("div", "msg err gap", message));
+    const inUse = DB.order.filter(id => DB.barrels[id].current).length;
+    const top = tabHead("Barrels", DB.order.length + " in total · " + inUse + " in use · " + (DB.order.length - inUse) + " empty", "+ Add barrel", "#barrels/new");
+    top.appendChild(el("p", "sub", "Tap a barrel to fill it, add a reading, record bottling or move it."));
+    $main.appendChild(top);
 
-    if (message) { const m = el("div", "msg err", message); m.style.marginBottom = "16px"; $main.insertBefore(m, c1); }
-
-    // barrels grouped by location
     const groups = {};
     DB.order.forEach(id => { const b = DB.barrels[id]; (groups[b.location || "Unknown"] ||= []).push(b); });
     Object.keys(groups).forEach(loc => {
-      const c = card("Barrels · " + loc), list = el("div", "list");
+      const c = card(loc), list = el("div", "list");
       groups[loc].forEach(b => {
         const a = el("a"); a.href = "#" + b.id;
         const left = el("div");
         add(left, el("div", "name", vesselName(b)), el("div", "sub", [b.size, b.type].filter(Boolean).join(" · ")));
         const right = el("div", "right");
         if (b.current) {
-          const bl = DB.blends[b.current.blend];
-          right.appendChild(el("span", "pill", b.current.blend + (bl && bl.vintage != null ? "" : "")));
+          right.appendChild(el("span", "pill", b.current.blend));
           const d = ago(b.current.filled);
           if (d) right.appendChild(el("div", "sub", "filled " + d));
         } else right.appendChild(el("span", "pill empty", "Empty"));
@@ -389,30 +407,95 @@ footer a { color: inherit; }
       });
       $main.appendChild(add(c, list));
     });
+    if (!DB.order.length) $main.appendChild(add(card(), el("p", "muted", "No barrels yet. Tap “+ Add barrel”.")));
 
-    // blends
+    const c3 = card("Stickers"), l2 = el("a", "button full", "Print barrel QR stickers");
+    l2.href = "#labels/barrels";
+    $main.appendChild(add(c3, l2));
+  }
+
+  function blendsTab() {
+    page("Blends", "blends");
+    $main.appendChild(tabHead("Blends", "Each pressing of juice: its apples and starting readings.", "+ New blend", "#blends/new"));
     const ids = Object.keys(DB.blends).sort().reverse();
-    if (ids.length) {
-      const c = card("Blends"), list = el("div", "list");
-      ids.forEach(id => {
+    if (!ids.length) { $main.appendChild(add(card(), el("p", "muted", "No blends yet. Tap “+ New blend”."))); return; }
+    const byV = {};
+    ids.forEach(id => { const v = DB.blends[id].vintage; (byV[v == null ? "" : v] ||= []).push(id); });
+    Object.keys(byV).sort((a, b) => Number(b) - Number(a)).forEach(v => {
+      const c = card(v === "" ? "Other" : "Vintage " + v), list = el("div", "list");
+      byV[v].forEach(id => {
         const bl = DB.blends[id], a = el("a"); a.href = "#blend/" + id;
-        const left = el("div");
-        add(left, el("div", "name", vlabel(bl.vintage) + " · Blend " + blendLetter(id)),
-            el("div", "sub", bl.apples.map(x => x.variety + (x.share ? " " + x.share : "")).join(", ")));
-        add(a, left, el("span", "sub", "›"));
+        const left = el("div"), inB = whereBlend(id);
+        const bottled = Object.values(DB.runs).filter(r => r.blend === id && r.bottled).length;
+        add(left, el("div", "name", "Blend " + id),
+            el("div", "sub", bl.apples.map(x => x.variety + (x.share ? " " + x.share : "")).join(", ") || "No apples listed"),
+            el("div", "sub", [inB.length ? "In " + inB.join(", ") : null, bottled ? "Bottled from " + bottled + (bottled === 1 ? " barrel" : " barrels") : null].filter(Boolean).join(" · ") || "Not in a barrel yet"));
+        const right = el("div", "right");
+        if (bl.juiced) right.appendChild(el("div", "sub", fmtDate(bl.juiced)));
+        add(a, left, right);
         list.appendChild(a);
       });
       $main.appendChild(add(c, list));
-    }
-
-    const c3 = card("More");
-    const btns = el("div", "btns");
-    const l1 = el("a", "button primary", "League table"); l1.href = "#league";
-    const l2 = el("a", "button", "Barrel QR stickers"); l2.href = "#labels/barrels";
-    add(c3, add(btns, l1, l2));
-    $main.appendChild(c3);
+    });
   }
 
+  function bottlesTab() {
+    page("Bottles", "bottles");
+    const c1 = card("Look up a bottle");
+    c1.appendChild(el("p", "sub", "Scan the label, or type the code from the label (e.g. 26A-B07 or 26A-B07-031)."));
+    const f = el("form", "codebox"), inp = el("input");
+    inp.placeholder = "26A-B07"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Bottle code");
+    f.style.marginTop = "0";
+    add(f, inp, el("button", "primary", "Go"));
+    const fmsg = el("div", "msg err"); fmsg.hidden = true; fmsg.style.marginTop = "10px";
+    f.addEventListener("submit", ev => {
+      ev.preventDefault();
+      const v = inp.value.trim().toUpperCase(), p = parseCode(v);
+      if (p) location.hash = p.code;
+      else if (DB.barrels[v]) location.hash = v;
+      else { fmsg.textContent = "That code isn't recognised. It looks like 26A-B07."; fmsg.hidden = false; }
+    });
+    $main.appendChild(add(c1, f, fmsg));
+
+    const runs = Object.values(DB.runs).filter(r => r.bottled).sort((a, b) => (b.bottled || "").localeCompare(a.bottled || ""));
+    const c2 = card("Bottled batches"), list = el("div", "list");
+    if (!runs.length) c2.appendChild(el("p", "muted", "Nothing bottled yet. Bottling is recorded on the barrel: Barrels → pick the barrel → Bottled."));
+    runs.forEach(r => {
+      const bl = DB.blends[r.blend], a = el("a"); a.href = "#" + r.key;
+      const left = el("div");
+      const strength = bl && bl.gravity != null && r.fg != null ? "≈ " + abv(bl.gravity, r.fg).toFixed(1) + "% ABV" : null;
+      add(left, el("div", "name", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(r.blend) + " · " + r.barrel),
+          el("div", "sub", ["Bottled " + fmtDate(r.bottled), r.bottles ? r.bottles + " bottles" : null, strength].filter(Boolean).join(" · ")));
+      const right = el("div", "right"), agg = DB.ratings[r.key];
+      right.appendChild(agg && agg.n ? el("div", "score", Math.round(score(agg) * 100) + "%") : el("div", "sub", "not rated"));
+      if (agg && agg.n) right.appendChild(el("div", "sub", agg.n + (agg.n === 1 ? " rating" : " ratings")));
+      add(a, left, right);
+      list.appendChild(a);
+    });
+    $main.appendChild(add(c2, list));
+
+    if (runs.length) {
+      const c3 = card("Print bottle labels"), lf = el("form");
+      lf.style.marginTop = "0";
+      const sel = el("select");
+      runs.forEach(r => { const o = el("option", null, r.key + " · bottled " + fmtDate(r.bottled)); o.value = r.key; sel.appendChild(o); });
+      const cnt = input(String(runs[0].bottles || 24), { inputMode: "numeric" });
+      const first = input("1", { inputMode: "numeric" });
+      sel.addEventListener("change", () => { const r = DB.runs[sel.value]; cnt.value = String((r && r.bottles) || 24); });
+      add(lf, field("Batch", sel), add(el("div", "two"), field("How many", cnt), field("First number", first)), el("button", "primary full", "Make labels"));
+      lf.addEventListener("submit", ev => {
+        ev.preventDefault();
+        location.hash = "labels/" + sel.value + "/" + (parseInt(cnt.value, 10) || 24) + "/" + (parseInt(first.value, 10) || 1);
+      });
+      $main.appendChild(add(c3, lf));
+    }
+
+    const c4 = card("Ratings"), l1 = el("a", "button primary full", "League table");
+    l1.href = "#league";
+    $main.appendChild(add(c4, l1));
+  }
+
+  // ---------- pages ----------
   function blendStats(grid, blend, yeast) {
     if (!blend) { stat(grid, "Yeast", yeast, null, true); return; }
     if (blend.juiced) stat(grid, "Juiced", fmtDate(blend.juiced), null, true);
@@ -426,6 +509,7 @@ footer a { color: inherit; }
     const cur = b.current, blend = cur ? DB.blends[cur.blend] : null;
     setVintage(blend ? blend.vintage : null);
     document.title = vesselName(b) + " · Green Lady";
+    setTab("barrels");
     $main.replaceChildren();
     window.scrollTo(0, 0);
 
@@ -495,7 +579,9 @@ footer a { color: inherit; }
       bt.addEventListener("click", () => { slot.replaceChildren(crewForm(b, a)); });
       btns.appendChild(bt);
     });
-    return add(c, btns, slot);
+    const ed = el("a", "button full", "Edit barrel details");
+    ed.href = "#" + b.id + "/edit"; ed.style.marginTop = "10px";
+    return add(c, btns, ed, slot);
   }
 
   function crewForm(b, action) {
@@ -544,57 +630,238 @@ footer a { color: inherit; }
       inputs.blend.addEventListener("change", fillYeast);
       fillYeast();
     }
-    const two = el("div", "two");
-    const ln = el("label"); ln.appendChild(document.createTextNode("Your name"));
-    const by = el("input"); by.value = store.get("gl-name") || ""; by.autocomplete = "given-name"; ln.appendChild(by);
-    const lp = el("label"); lp.appendChild(document.createTextNode("Crew PIN"));
-    const pin = el("input"); pin.type = "password"; pin.inputMode = "numeric"; pin.value = store.get("gl-pin") || ""; lp.appendChild(pin);
-    add(f, add(two, ln, lp));
+    const auth = crewFields(f);
     const msg = el("div", "msg"); msg.hidden = true;
     const save = el("button", "primary full", "Save");
     add(f, save, msg);
 
     f.addEventListener("submit", async ev => {
       ev.preventDefault();
-      const body = { kind: "log", action, barrel: b.id, pin: pin.value.trim(), by: by.value.trim() };
+      const body = { kind: "log", action, barrel: b.id };
       Object.keys(inputs).forEach(k => body[k] = inputs[k].value.trim());
-      if (action === "Fill" && !body.blend) return show("Add the blend to the Blends tab first.");
+      if (action === "Fill" && !body.blend) return show("Create the blend first: Blends tab → + New blend.");
       if (action === "Bottled") body.blend = b.current ? b.current.blend : "";
+      if (body.gravity) body.gravity = gravityVal(body.gravity);
       for (const k of ["gravity", "ph", "bottles"]) {
         if (body[k] && !isFinite(Number(body[k].replace(",", ".")))) return show("That " + (k === "ph" ? "pH" : k) + " doesn't look like a number.");
         if (body[k]) body[k] = body[k].replace(",", ".");
       }
       if (action === "Reading" && !body.gravity && !body.ph && !body.note) return show("Enter a gravity, pH or note.");
       if (action === "Moved" && !body.location) return show("Where has it gone?");
-      if (!body.pin) return show("Enter the crew PIN.");
-      save.disabled = true; save.textContent = "Saving…";
-      try {
-        const r = await post(body);
-        if (!r.ok) {
-          if (/pin/i.test(r.error || "")) store.del("gl-pin");
-          save.disabled = false; save.textContent = "Save";
-          return show(r.error || "Couldn't save.");
-        }
-        store.set("gl-pin", body.pin);
-        if (body.by) store.set("gl-name", body.by);
-        await load();
-        barrelPage(DB.barrels[b.id]);
-        const done = el("div", "msg ok", "Saved: " + LABEL[action].replace("+ ", "") + " for " + b.id + ".");
-        $main.insertBefore(done, $main.firstChild);
-        if (action === "Bottled") {
-          const run = body.blend + "-" + b.id;
-          const a = el("a", "button primary full", "Print " + (body.bottles || "") + " bottle labels");
-          a.href = "#labels/" + run + "/" + (parseInt(body.bottles, 10) || 24);
-          a.style.margin = "-6px 0 16px";
-          $main.insertBefore(a, done.nextSibling);
-        }
-      } catch (e) {
-        save.disabled = false; save.textContent = "Save";
-        show("No connection – nothing was saved. Try again.");
-      }
+      if (!await crewPost(body, auth, save, show)) return;
+      FLASH = { text: "Saved: " + LABEL[action].replace("+ ", "") + " for " + b.id + "." };
+      if (action === "Bottled") FLASH.link = { text: "Print " + (body.bottles || "") + " bottle labels", href: "#labels/" + body.blend + "-" + b.id + "/" + (parseInt(body.bottles, 10) || 24) };
+      route();
     });
     function show(t) { msg.className = "msg err"; msg.textContent = t; msg.hidden = false; }
     return f;
+  }
+
+  // ----- crew forms: shared bits -----
+  function field(label, inp, hint) {
+    const l = el("label");
+    l.appendChild(document.createTextNode(label));
+    if (hint) l.appendChild(el("small", null, hint));
+    l.appendChild(inp);
+    return l;
+  }
+  function input(value, props) {
+    const i = el("input");
+    Object.assign(i, props || {});
+    if (value != null) i.value = value;
+    return i;
+  }
+  function suggest(inp, id, values) {   // typing suggestions from what's already in the records
+    let dl = document.getElementById(id);
+    if (!dl) {
+      dl = el("datalist"); dl.id = id; $main.appendChild(dl);
+      [...new Set(values.map(tidy).filter(Boolean))].sort().forEach(v => { const o = el("option"); o.value = v; dl.appendChild(o); });
+    }
+    inp.setAttribute("list", id);
+  }
+  function knownYeasts() {
+    const ys = [];
+    Object.values(DB.blends).forEach(x => ys.push(x.yeast));
+    DB.order.forEach(id => { const bb = DB.barrels[id]; [bb.current, ...bb.history].forEach(f => f && ys.push(f.yeast)); });
+    return ys;
+  }
+  const knownLocations = () => DB.order.map(id => DB.barrels[id].location);
+  function gravityVal(s) {   // "1050" or "1,050" -> "1.05"; "" stays ""; nonsense -> "x" (caught by the number checks)
+    s = String(s || "").trim().replace(",", ".");
+    if (!s) return "";
+    const n = Number(s);
+    if (!isFinite(n)) return "x";
+    return String(n > 100 ? n / 1000 : n);
+  }
+  const pad2 = n => String(n).padStart(2, "0");
+  function isoToday() { const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  function crewFields(f) {
+    const by = input(store.get("gl-name") || "", { autocomplete: "given-name" });
+    const pin = input(store.get("gl-pin") || "", { type: "password", inputMode: "numeric" });
+    add(f, add(el("div", "two"), field("Your name", by), field("Crew PIN", pin)));
+    return { by, pin };
+  }
+  // Sends a crew change. Returns true once saved and the records are reloaded.
+  async function crewPost(body, auth, btn, show) {
+    body.pin = auth.pin.value.trim();
+    body.by = auth.by.value.trim();
+    if (!body.pin) { show("Enter the crew PIN."); return false; }
+    const txt = btn.textContent;
+    btn.disabled = true; btn.textContent = "Saving…";
+    let r;
+    try { r = await post(body); }
+    catch (e) { btn.disabled = false; btn.textContent = txt; show("No connection – nothing was saved. Try again."); return false; }
+    if (!r.ok) {
+      if (/pin/i.test(r.error || "")) store.del("gl-pin");
+      btn.disabled = false; btn.textContent = txt;
+      show(r.error || "Couldn't save.");
+      return false;
+    }
+    store.set("gl-pin", body.pin);
+    if (body.by) store.set("gl-name", body.by);
+    try { await load(); } catch (e) { btn.textContent = "Saved"; show("Saved, but couldn't refresh. Reload the page to see it."); return false; }
+    return true;
+  }
+  function formCard(title, tab) {
+    page(title, tab);
+    const c = card(title);
+    c.classList.add("formcard");
+    const f = el("form"); f.style.marginTop = "0";
+    $main.appendChild(add(c, f));
+    return f;
+  }
+  function formEnd(f, saveText, cancelHref) {
+    const msg = el("div", "msg err"); msg.hidden = true;
+    const save = el("button", "primary full", saveText);
+    const cancel = el("a", "button full", "Cancel"); cancel.href = cancelHref;
+    add(f, save, msg, cancel);
+    return { save, show: t => { msg.textContent = t; msg.hidden = false; } };
+  }
+
+  // ----- add / edit a barrel -----
+  function nextBarrelId() {
+    let n = 0;
+    DB.order.forEach(id => { const m = /^B(\d+)$/.exec(id); if (m) n = Math.max(n, Number(m[1])); });
+    return "B" + pad2(n + 1);
+  }
+  function barrelForm(b) {
+    const f = formCard(b ? "Edit " + vesselName(b) : "Add a barrel", "barrels");
+    let idIn = null;
+    if (!b) {
+      idIn = input(nextBarrelId(), { autocomplete: "off", placeholder: "B21" });
+      idIn.style.textTransform = "uppercase";
+      f.appendChild(field("Barrel number", idIn, "B for barrels, D for demijohns, e.g. B21 or D03"));
+    }
+    const size = input(b ? String(b.size).replace(/\s*(l|ltr|litres?|liters?)\.?$/i, "") : "", { inputMode: "decimal", placeholder: "30" });
+    const type = input(b ? b.type : "", { placeholder: "Plastic" });
+    suggest(type, "dl-types", ["Plastic", "Glass demijohn", "Oak", "Stainless steel"].concat(DB.order.map(id => DB.barrels[id].type)));
+    const loc = input(b ? b.location : "", { placeholder: "Greenacres" });
+    suggest(loc, "dl-locs", knownLocations());
+    const notes = el("textarea"); notes.value = b ? b.notes : "";
+    add(f, add(el("div", "two"), field("Size (litres)", size), field("Type", type)), field("Where is it?", loc), field("Notes", notes));
+    const auth = crewFields(f);
+    const { save, show } = formEnd(f, b ? "Save changes" : "Add barrel", b ? "#" + b.id : "#barrels");
+    f.addEventListener("submit", async ev => {
+      ev.preventDefault();
+      const id = b ? b.id : idIn.value.trim().toUpperCase();
+      if (!/^[BD]\d{2,3}$/.test(id)) return show("Barrel numbers look like B21 (barrel) or D03 (demijohn).");
+      if (!b && DB.barrels[id]) return show(id + " already exists.");
+      const sz = size.value.trim().replace(",", ".");
+      if (sz && !isFinite(Number(sz))) return show("Size should be a number of litres, e.g. 30.");
+      const where = loc.value.trim();
+      const body = { kind: "barrel", isNew: !b, barrel: id, size: sz, type: type.value.trim(), location: where, notes: notes.value.trim(),
+                     moved: !!b && !!where && where !== b.location };
+      if (!await crewPost(body, auth, save, show)) return;
+      FLASH = { text: b ? "Saved changes to " + id + "." : "Added " + id + ". Write its NFC tag or print a QR sticker when you're ready." };
+      location.hash = id;
+    });
+  }
+
+  // ----- new / edit a blend -----
+  function nextBlendId() {
+    const v = new Date().getFullYear() % 100;
+    let max = 64;   // "@", so the first one is A
+    Object.keys(DB.blends).forEach(id => { const m = /^(\d+)([A-Z])$/.exec(id); if (m && Number(m[1]) === v) max = Math.max(max, m[2].charCodeAt(0)); });
+    return v + (max < 90 ? String.fromCharCode(max + 1) : "");
+  }
+  function blendForm(bl) {
+    const f = formCard(bl ? "Edit blend " + bl.id : "New blend", "blends");
+    let idIn = null;
+    if (!bl) {
+      idIn = input(nextBlendId(), { autocomplete: "off", placeholder: "26D" });
+      idIn.style.textTransform = "uppercase";
+      f.appendChild(field("Blend code", idIn, "Vintage year + letter, e.g. 26D"));
+    }
+    const juiced = input(bl ? bl.juiced : isoToday(), { type: "date" });
+    f.appendChild(field("Date juiced", juiced));
+
+    // apples: one row per variety
+    f.appendChild(el("h3", null, "Apples"));
+    const varieties = [], places = [];
+    Object.values(DB.blends).forEach(x => x.apples.forEach(a => { varieties.push(a.variety); places.push(a.location); }));
+    const rows = el("div", "applerows"), tot = el("div", "total");
+    function addRow(a) {
+      a = a || {};
+      const r = el("div", "applerow");
+      const v = input(a.variety || "", { placeholder: "Variety, e.g. Dabinett" });
+      suggest(v, "dl-varieties", varieties);
+      const sh = input((a.share || "").replace("%", ""), { inputMode: "decimal", placeholder: "%" });
+      sh.classList.add("share"); sh.setAttribute("aria-label", "Percent of the blend");
+      const x = el("button", null, "×"); x.type = "button"; x.setAttribute("aria-label", "Remove this apple");
+      const lo = input(a.location || "", { placeholder: "Where from? e.g. Home Farm" });
+      lo.classList.add("loc");
+      suggest(lo, "dl-places", places);
+      x.addEventListener("click", () => { r.remove(); total(); });
+      sh.addEventListener("input", total);
+      add(r, v, sh, x, lo);
+      rows.appendChild(r);
+      return v;
+    }
+    function total() {
+      let t = 0, any = false;
+      rows.querySelectorAll(".share").forEach(s => { const n = Number(s.value.replace(",", ".")); if (s.value.trim() && isFinite(n)) { t += n; any = true; } });
+      const off = Math.abs(t - 100) > 0.01;
+      tot.textContent = any ? "Total " + Number(t.toFixed(1)) + "%" + (off ? " – should add up to 100%" : " ✓") : "";
+      tot.classList.toggle("bad", any && off);
+    }
+    (bl && bl.apples.length ? bl.apples : [{}, {}]).forEach(a => addRow(a));
+    const more = el("button", null, "+ Add another apple"); more.type = "button";
+    more.addEventListener("click", () => addRow().focus());
+    add(f, rows, tot, more);
+    total();
+
+    f.appendChild(el("h3", null, "Juice"));
+    const grav = input(bl && bl.gravity != null ? sg(bl.gravity) : "", { inputMode: "decimal", placeholder: "1.050" });
+    const ph = input(bl && bl.ph != null ? String(bl.ph) : "", { inputMode: "decimal", placeholder: "3.5" });
+    const yeast = input(bl ? bl.yeast : "", { placeholder: "e.g. SafCider TF-6" });
+    suggest(yeast, "dl-yeasts", knownYeasts());
+    const notes = el("textarea"); notes.value = bl ? bl.notes : "";
+    add(f, add(el("div", "two"), field("Starting gravity", grav), field("Starting pH", ph)), field("Yeast", yeast), field("Notes", notes));
+    const auth = crewFields(f);
+    const { save, show } = formEnd(f, bl ? "Save changes" : "Save blend", bl ? "#blend/" + bl.id : "#blends");
+
+    f.addEventListener("submit", async ev => {
+      ev.preventDefault();
+      const id = bl ? bl.id : idIn.value.trim().toUpperCase().replace(/\s+/g, "");
+      if (!/^\d{2}[A-Z]{1,2}$/.test(id)) return show("Blend codes look like 26D (year + letter).");
+      if (!bl && DB.blends[id]) return show("Blend " + id + " already exists.");
+      const apples = [];
+      for (const r of rows.querySelectorAll(".applerow")) {
+        const [v, sh, , lo] = r.children;
+        const name = tidy(v.value).replace(/[;%]/g, ""), share = sh.value.trim().replace(",", "."), place = tidy(lo.value).replace(/;/g, ",");
+        if (!name) { if (share || place) return show("One of the apple rows has no variety."); continue; }
+        if (share && !isFinite(Number(share))) return show("The % for " + name + " isn't a number.");
+        apples.push(name + (share ? " " + Number(share) + "%" : "") + (place ? " - " + place : ""));
+      }
+      const g = gravityVal(grav.value), p = ph.value.trim().replace(",", ".");
+      if (g === "x") return show("Starting gravity doesn't look like a number (e.g. 1.050).");
+      if (p && !isFinite(Number(p))) return show("pH doesn't look like a number (e.g. 3.5).");
+      const body = { kind: "blend", isNew: !bl, blend: id, juiced: juiced.value, apples: apples.join("; "), gravity: g, ph: p,
+                     yeast: yeast.value.trim(), notes: notes.value.trim() };
+      if (!await crewPost(body, auth, save, show)) return;
+      FLASH = { text: bl ? "Saved changes to blend " + id + "." : "Saved blend " + id + ". You can now fill barrels with it (Barrels → barrel → Fill)." };
+      location.hash = "blend/" + id;
+    });
   }
 
   // ----- bottle page + rating -----
@@ -602,6 +869,7 @@ footer a { color: inherit; }
     const blend = DB.blends[p.blend], run = DB.runs[p.run], barrel = DB.barrels[p.barrel];
     setVintage(blend ? blend.vintage : null);
     document.title = "Bottle " + p.code + " · Green Lady";
+    setTab("bottles");
     $main.replaceChildren();
     window.scrollTo(0, 0);
 
@@ -702,6 +970,7 @@ footer a { color: inherit; }
     const blend = DB.blends[id];
     setVintage(blend.vintage);
     document.title = "Blend " + id + " · Green Lady";
+    setTab("blends");
     $main.replaceChildren();
     window.scrollTo(0, 0);
     const top = card(), head = el("div", "head");
@@ -724,12 +993,16 @@ footer a { color: inherit; }
     });
     if (!list.children.length) list.appendChild(el("div", "muted", "Not in any barrel yet."));
     $main.appendChild(add(c, list));
+    const ce = card("Crew"), ed = el("a", "button full", "Edit this blend");
+    ed.href = "#blend/" + id + "/edit";
+    $main.appendChild(add(ce, ed));
   }
 
   // ----- league table -----
   function league() {
     setVintage(null);
     document.title = "League table · Green Lady";
+    setTab("bottles");
     $main.replaceChildren();
     window.scrollTo(0, 0);
     const rated = Object.values(DB.runs).filter(r => DB.ratings[r.key] && DB.ratings[r.key].n)
@@ -788,6 +1061,7 @@ footer a { color: inherit; }
   async function labels(arg) {
     setVintage(null);
     document.title = "Labels · Green Lady";
+    setTab(arg === "barrels" ? "barrels" : "bottles");
     $main.replaceChildren(add(card(), el("div", "empty", "Making labels…")));
     try { await loadQR(); } catch (e) { $main.replaceChildren(add(card(), el("div", "msg err", "Couldn't load the QR maker. Check the connection."))); return; }
     $main.replaceChildren();
@@ -800,7 +1074,7 @@ footer a { color: inherit; }
       items = DB.order.map(id => ({ url: SITE + "#" + id, big: id, t3: [DB.barrels[id].size, "Green Lady"].filter(Boolean).join(" · ") }));
     } else {
       const m = /^([^/]+)\/(\d+)(?:\/(\d+))?$/.exec(arg), p = m && parseCode(m[1]);
-      if (!p) { home("Label link not recognised."); return; }
+      if (!p) { barrelsTab("Label link not recognised."); return; }
       const count = Math.min(500, parseInt(m[2], 10) || 24), start = parseInt(m[3] || "1", 10) || 1;
       const bl = DB.blends[p.blend];
       const f = el("form", "two"); f.style.marginTop = "0";
@@ -834,17 +1108,30 @@ footer a { color: inherit; }
 
   // ---------- routing ----------
   function route() {
+    window.scrollTo(0, 0);
     const raw = decodeURIComponent(location.hash.slice(1)).trim();
     const up = raw.toUpperCase();
-    if (!raw) return home();
-    if (up === "LEAGUE") return league();
-    if (/^labels\//i.test(raw)) return labels(raw.slice(7));
-    if (/^blend\//i.test(raw)) { const id = up.slice(6); if (DB.blends[id]) return blendPage(id); }
-    if (DB.barrels[up]) return barrelPage(DB.barrels[up]);
-    const p = parseCode(up);
-    if (p) return bottlePage(p);
-    if (DB.blends[up]) return blendPage(up);
-    home("This tag (" + raw + ") isn't linked to a barrel or bottle yet.");
+    let m;
+    if (!raw || up === "BARRELS") barrelsTab();
+    else if (up === "BARRELS/NEW") barrelForm(null);
+    else if (up === "BLENDS") blendsTab();
+    else if (up === "BLENDS/NEW") blendForm(null);
+    else if (up === "BOTTLES") bottlesTab();
+    else if (up === "LEAGUE") league();
+    else if (/^labels\//i.test(raw)) { FLASH = null; return labels(raw.slice(7)); }
+    else if ((m = /^BLEND\/([^/]+)\/EDIT$/.exec(up)) && DB.blends[m[1]]) blendForm(DB.blends[m[1]]);
+    else if ((m = /^BLEND\/([^/]+)$/.exec(up)) && DB.blends[m[1]]) blendPage(m[1]);
+    else if ((m = /^([A-Z]\d{2,3})\/EDIT$/.exec(up)) && DB.barrels[m[1]]) barrelForm(DB.barrels[m[1]]);
+    else if (DB.barrels[up]) barrelPage(DB.barrels[up]);
+    else if (parseCode(up)) bottlePage(parseCode(up));
+    else if (DB.blends[up]) blendPage(up);
+    else barrelsTab("This tag (" + raw + ") isn't linked to a barrel or bottle yet.");
+    if (FLASH) {
+      const ok = el("div", "msg ok gap", FLASH.text);
+      $main.insertBefore(ok, $main.firstChild);
+      if (FLASH.link) { const a = el("a", "button primary full", FLASH.link.text); a.href = FLASH.link.href; a.style.marginBottom = "16px"; ok.after(a); }
+      FLASH = null;
+    }
   }
 
   window.addEventListener("hashchange", route);

@@ -11,7 +11,8 @@
 // them or add your own. Missing columns are added on the right when needed.
 // Accepted headings (any capitals) are listed in ALIASES below.
 //
-// Crew actions (Fill, Reading, Moved, Bottled, Note, Empty) need the PIN.
+// Crew actions (Fill, Reading, Moved, Bottled, Note, Empty), adding/editing
+// barrels and creating/editing blends all need the PIN.
 // Bottle ratings from friends need no PIN.
 // Anything in the Barrels, Blends and Log tabs can be seen by anyone who has
 // the page link. Ratings are shown only as counts (names and comments stay
@@ -111,7 +112,34 @@ function doPost(e) {
         Blend: clean(d.blend, 20).toUpperCase(), Yeast: clean(d.yeast, 60), Gravity: num(d.gravity), pH: num(d.ph),
         Bottles: num(d.bottles), Priming: clean(d.priming, 40), Location: clean(d.location, 60),
         Notes: clean(d.note, 500), By: clean(d.by, 40) });
+      // Keep the Barrels tab's Location up to date when a barrel moves.
+      if (d.action === "Moved" && d.location) {
+        upsertByHeading(tab(ss, "Barrels"), "Barrels", "Barrel",
+          { Barrel: clean(d.barrel, 10).toUpperCase(), Location: clean(d.location, 60) }, "edit");
+      }
       return reply({ ok: true });
+    }
+
+    if (d.kind === "barrel") {
+      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong crew PIN" });
+      const id = clean(d.barrel, 10).toUpperCase();
+      if (!/^[BD]\d{2,3}$/.test(id)) return reply({ ok: false, error: "Barrel numbers look like B21 or D03" });
+      const r = upsertByHeading(tab(ss, "Barrels"), "Barrels", "Barrel", { Barrel: id, Size: numOrText(d.size, 20),
+        Type: clean(d.type, 40), Location: clean(d.location, 60), Notes: clean(d.notes, 500) }, d.isNew ? "new" : "edit");
+      if (!r.ok) return reply(r);
+      if (d.moved && d.location) appendByHeading(tab(ss, "Log"), "Log", { Time: now, Barrel: id, Action: "Moved",
+        Location: clean(d.location, 60), By: clean(d.by, 40) });
+      return reply({ ok: true });
+    }
+
+    if (d.kind === "blend") {
+      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong crew PIN" });
+      const id = clean(d.blend, 10).toUpperCase();
+      if (!/^\d{2}[A-Z]{1,2}$/.test(id)) return reply({ ok: false, error: "Blend codes look like 26D" });
+      const r = upsertByHeading(tab(ss, "Blends"), "Blends", "Blend", { Blend: id, Juiced: dayDate(d.juiced),
+        Apples: clean(d.apples, 1000), Gravity: num(d.gravity), pH: num(d.ph), Yeast: clean(d.yeast, 60),
+        Notes: clean(d.notes, 1000) }, d.isNew ? "new" : "edit", { Juiced: "d mmm yyyy", Gravity: "0.000" });
+      return reply(r);
     }
 
     return reply({ ok: false, error: "Unknown request" });
@@ -148,10 +176,10 @@ function canon(tabKey, h) {
   return t;
 }
 
-// Writes one row, putting each value under its matching heading.
-// Adds a column on the right for any value whose heading isn't there yet.
-function appendByHeading(sh, tabKey, values) {
-  let lastCol = Math.max(sh.getLastColumn(), 1);
+// Finds the column for each value by heading.
+// Adds a column on the right for any (non-empty) value whose heading isn't there yet.
+function columnsFor(sh, tabKey, values) {
+  const lastCol = Math.max(sh.getLastColumn(), 1);
   const head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
   const where = {};
   head.forEach(function (h, i) { const c = canon(tabKey, h); if (c && !(c in where)) where[c] = i; });
@@ -162,9 +190,51 @@ function appendByHeading(sh, tabKey, values) {
     sh.getRange(1, col + 1).setValue(k).setFontWeight("bold");
     where[k] = col;
   });
-  const row = head.map(function () { return ""; });
-  Object.keys(values).forEach(function (k) { if (k in where) row[where[k]] = values[k]; });
+  return { head: head, where: where };
+}
+
+// Writes one new row, putting each value under its matching heading.
+function appendByHeading(sh, tabKey, values) {
+  const cols = columnsFor(sh, tabKey, values);
+  const row = cols.head.map(function () { return ""; });
+  Object.keys(values).forEach(function (k) { if (k in cols.where) row[cols.where[k]] = values[k]; });
   sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
+}
+
+// Updates the row whose key column (e.g. Barrel = "B07") matches, or adds it.
+// mode "new": refuse if it already exists.  mode "edit": refuse if it doesn't.
+// Only the given columns are touched; an empty value clears that cell.
+function upsertByHeading(sh, tabKey, keyName, values, mode, formats) {
+  const cols = columnsFor(sh, tabKey, values);
+  const id = String(values[keyName]).trim().toUpperCase();
+  const kc = cols.where[keyName];
+  let row = 0;
+  if (kc != null && sh.getLastRow() > 1) {
+    const keys = sh.getRange(2, kc + 1, sh.getLastRow() - 1, 1).getValues();
+    for (let i = 0; i < keys.length; i++) {
+      if (String(keys[i][0]).trim().toUpperCase() === id) { row = i + 2; break; }
+    }
+  }
+  if (row && mode === "new") return { ok: false, error: id + " already exists" };
+  if (!row && mode === "edit") return { ok: false, error: id + " isn't in the Sheet" };
+  if (!row) row = sh.getLastRow() + 1;
+  Object.keys(values).forEach(function (k) {
+    if (!(k in cols.where)) return;
+    const cell = sh.getRange(row, cols.where[k] + 1);
+    cell.setValue(values[k]);
+    if (formats && formats[k] && values[k] !== "") cell.setNumberFormat(formats[k]);
+  });
+  return { ok: true };
+}
+
+// "2026-11-04" from the page's date picker -> a real date (no US/UK mix-ups).
+function dayDate(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ""));
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12) : "";
+}
+function numOrText(x, max) {
+  const n = num(x);
+  return n === "" ? clean(x, max) : n;
 }
 
 function clean(s, max) {
