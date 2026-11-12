@@ -634,7 +634,7 @@ footer a { color: inherit; }
   function finishCard(b) {
     const btns = el("div", "btns"), slot = el("div");
     ["Bottled", "Empty"].forEach(a => {
-      const bt = el("button", null, LABEL[a]);
+      const bt = el("button", "primary", LABEL[a]);
       bt.type = "button";
       bt.addEventListener("click", () => { slot.replaceChildren(actionForm(b, a)); slot.scrollIntoView({ behavior: "smooth", block: "start" }); });
       btns.appendChild(bt);
