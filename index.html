@@ -119,6 +119,7 @@ label { display: grid; gap: 4px; font-size: 14px; font-weight: 600; }
 label small { font-weight: 400; color: var(--muted); }
 input, select, textarea { font: inherit; font-weight: 400; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--input); color: var(--ink); width: 100%; }
 textarea { min-height: 70px; resize: vertical; }
+::placeholder { color: var(--muted); opacity: .5; font-style: italic; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .msg { padding: 10px 12px; border-radius: 8px; font-size: 14px; }
 .msg.ok { background: var(--pill); color: var(--green); }
@@ -502,7 +503,7 @@ footer a { color: inherit; }
     const c1 = card("Look up a bottle");
     c1.appendChild(el("p", "sub", "Scan the label, or type the code from the label (e.g. 26A-B07 or 26A-B07-031)."));
     const f = el("form", "codebox"), inp = el("input");
-    inp.placeholder = "26A-B07"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Bottle code");
+    inp.placeholder = "e.g. 26A-B07"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Bottle code");
     f.style.marginTop = "0";
     add(f, inp, el("button", "primary", "Go"));
     const fmsg = el("div", "msg err"); fmsg.hidden = true; fmsg.style.marginTop = "10px";
@@ -656,9 +657,9 @@ footer a { color: inherit; }
         inp = el("textarea");
       } else {
         inp = el("input");
-        if (kind === "gravity") { inp.inputMode = "decimal"; inp.placeholder = "1.010"; }
-        if (kind === "ph") { inp.inputMode = "decimal"; inp.placeholder = "3.5"; }
-        if (kind === "int") { inp.inputMode = "numeric"; inp.placeholder = "23"; }
+        if (kind === "gravity") { inp.inputMode = "decimal"; inp.placeholder = "e.g. 1.010"; }
+        if (kind === "ph") { inp.inputMode = "decimal"; inp.placeholder = "e.g. 3.5"; }
+        if (kind === "int") { inp.inputMode = "numeric"; inp.placeholder = "e.g. 23"; }
         if (kind === "short" && hint) inp.placeholder = hint;
         if (kind === "yeast") {
           const dl = el("datalist"); dl.id = "yeasts";
@@ -822,10 +823,10 @@ footer a { color: inherit; }
       idIn.style.textTransform = "uppercase";
       f.appendChild(field("Barrel number", idIn, "B for barrels, D for demijohns, e.g. B21 or D03"));
     }
-    const size = input(b ? String(b.size).replace(/\s*(l|ltr|litres?|liters?)\.?$/i, "") : "", { inputMode: "decimal", placeholder: "30" });
-    const type = input(b ? b.type : "", { placeholder: "Plastic" });
+    const size = input(b ? String(b.size).replace(/\s*(l|ltr|litres?|liters?)\.?$/i, "") : "", { inputMode: "decimal", placeholder: "e.g. 30" });
+    const type = input(b ? b.type : "", { placeholder: "e.g. Plastic" });
     suggest(type, "dl-types", ["Plastic", "Glass demijohn", "Oak", "Stainless steel"].concat(DB.order.map(id => DB.barrels[id].type)));
-    const loc = input(b ? b.location : "", { placeholder: "Greenacres" });
+    const loc = input(b ? b.location : "", { placeholder: "e.g. Greenacres" });
     suggest(loc, "dl-locs", knownLocations());
     add(f, add(el("div", "two"), field("Size (litres)", size), field("Type", type)), field("Where is it?", loc));
     const auth = pinFields(f);
@@ -859,6 +860,7 @@ footer a { color: inherit; }
       const sz = size.value.trim().replace(",", ".");
       if (sz && !isFinite(Number(sz))) return show("Size should be a number of litres, e.g. 30.");
       const where = loc.value.trim();
+      if (!where) return show("Where is it? Type the location (the grey text is only an example).");
       const body = { kind: "barrel", isNew: !b, barrel: id, size: sz, type: type.value.trim(), location: where, notes: b ? b.notes : "",   // no notes box; keep any already in the Sheet
                      moved: !!b && !!where && where !== b.location };
       if (!await pinPost(body, auth, save, show)) return;
@@ -952,8 +954,8 @@ footer a { color: inherit; }
     total();
 
     f.appendChild(el("h3", null, "Juice"));
-    const grav = input(bl && bl.gravity != null ? sg(bl.gravity) : "", { inputMode: "decimal", placeholder: "1.050" });
-    const ph = input(bl && bl.ph != null ? String(bl.ph) : "", { inputMode: "decimal", placeholder: "3.5" });
+    const grav = input(bl && bl.gravity != null ? sg(bl.gravity) : "", { inputMode: "decimal", placeholder: "e.g. 1.050" });
+    const ph = input(bl && bl.ph != null ? String(bl.ph) : "", { inputMode: "decimal", placeholder: "e.g. 3.5" });
     const yeast = input(bl ? bl.yeast : "", { placeholder: "e.g. SafCider TF-6" });
     suggest(yeast, "dl-yeasts", knownYeasts());
     add(f, add(el("div", "two"), field("Starting gravity", grav), field("Starting pH", ph)), field("Yeast", yeast));
