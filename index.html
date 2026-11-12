@@ -607,12 +607,9 @@ footer a { color: inherit; }
   // Full barrel: the Notes card (+ Note); Bottle it / Empty it sit in their own card at the bottom (finishCard).
   function actionCard(b) {
     if (!b.current) {
-      const slot = el("div"), fb = el("button", "primary full", LABEL.Fill);
-      fb.type = "button";
-      fb.addEventListener("click", () => { slot.replaceChildren(actionForm(b, "Fill")); });
-      const ed = el("a", "button primary full", "Edit barrel details");
-      ed.href = "#" + b.id + "/edit"; ed.style.marginTop = "10px";
-      return add(card(), fb, ed, slot);
+      const fb = el("a", "button primary full", LABEL.Fill);   // same page as Edit fill details
+      fb.href = "#" + b.id + "/fill";
+      return add(card(), fb);
     }
 
     // Full barrel: the Notes card, with a + Note button that opens the note box.
@@ -876,32 +873,47 @@ footer a { color: inherit; }
   }
 
   // ----- edit the current fill (blend, date filled, yeast, fill note) -----
+  // One page for both: Fill this barrel (empty barrel) and Edit fill details (full barrel).
   function fillForm(b) {
     const cur = b.current;
-    const f = formCard("Edit fill · " + vesselName(b), "barrels");
+    const f = formCard((cur ? "Edit fill · " : "Fill ") + vesselName(b), "barrels");
     const blend = el("select");
+    if (!cur) {   // new fill: start blank with a pale prompt
+      const p0 = el("option", null, Object.keys(DB.blends).length ? "Choose a blend…" : "No blends yet");
+      p0.value = ""; p0.disabled = true; p0.selected = true; blend.appendChild(p0);
+      blend.classList.add("unset");
+      blend.addEventListener("change", () => blend.classList.toggle("unset", !blend.value));
+    }
     Object.keys(DB.blends).sort().reverse().forEach(id => {
       const o = el("option", null, id + " · " + DB.blends[id].apples.map(x => x.variety).join(", "));
       o.value = id; blend.appendChild(o);
     });
-    if (cur.blend && !DB.blends[cur.blend]) { const o = el("option", null, cur.blend); o.value = cur.blend; blend.insertBefore(o, blend.firstChild); }
-    blend.value = cur.blend;
-    const filled = input(cur.filled || isoToday(), { type: "date" });
-    const yeast = input(cur.fillYeast || "", { placeholder: "e.g. SafCider TF-6" });
+    if (cur) {
+      if (cur.blend && !DB.blends[cur.blend]) { const o = el("option", null, cur.blend); o.value = cur.blend; blend.insertBefore(o, blend.firstChild); }
+      blend.value = cur.blend;
+    }
+    const filled = input(cur ? (cur.filled || isoToday()) : isoToday(), { type: "date" });
+    const yeast = input(cur ? (cur.fillYeast || "") : "", { placeholder: "e.g. SafCider TF-6" });
     suggest(yeast, "dl-yeasts", knownYeasts());
+    if (!cur) {   // new fill: take the yeast from the blend unless one has been typed
+      yeast.addEventListener("input", () => { yeast.dataset.typed = "1"; });
+      blend.addEventListener("change", () => { const bl = DB.blends[blend.value]; if (bl && bl.yeast && !yeast.dataset.typed) yeast.value = bl.yeast; });
+    }
     add(f, field("Which blend?", blend), field("Date filled", filled), field("Yeast", yeast));
     const auth = pinFields(f);
-    const { save, show } = formEnd(f, "Save changes", "#" + b.id);
+    const { save, show } = formEnd(f, cur ? "Save changes" : "Fill this barrel", "#" + b.id);
 
     f.addEventListener("submit", async ev => {
       ev.preventDefault();
       const d = filled.value;
       if (!d) return show("Enter the date it was filled.");
       if (d > isoToday()) return show("The fill date can't be in the future.");
-      if (!blend.value) return show("Choose a blend.");
-      const body = { kind: "fill", barrel: b.id, blend: blend.value, filled: d, yeast: yeast.value.trim(), note: cur.fillNote || "" };   // no note box; keep any existing fill note
+      if (!blend.value) return show(Object.keys(DB.blends).length ? "Choose a blend." : "Create the blend first: Blends tab → + New blend.");
+      const body = cur
+        ? { kind: "fill", barrel: b.id, blend: blend.value, filled: d, yeast: yeast.value.trim(), note: cur.fillNote || "" }   // no note box; keep any existing fill note
+        : { kind: "log", action: "Fill", barrel: b.id, blend: blend.value, filled: d, yeast: yeast.value.trim() };
       if (!await pinPost(body, auth, save, show)) return;
-      FLASH = { text: "Saved fill details for " + b.id + "." };
+      FLASH = { text: cur ? "Saved fill details for " + b.id + "." : "Filled: " + b.id + "." };
       location.hash = b.id;
     });
   }
@@ -1248,8 +1260,7 @@ footer a { color: inherit; }
     else if ((m = /^BLEND\/([^/]+)\/EDIT$/.exec(up)) && DB.blends[m[1]]) blendForm(DB.blends[m[1]]);
     else if ((m = /^BLEND\/([^/]+)$/.exec(up)) && DB.blends[m[1]]) blendPage(m[1]);
     else if ((m = /^([A-Z]\d{2,3})\/EDIT$/.exec(up)) && DB.barrels[m[1]]) barrelForm(DB.barrels[m[1]]);
-    else if ((m = /^([A-Z]\d{2,3})\/FILL$/.exec(up)) && DB.barrels[m[1]] && DB.barrels[m[1]].current) fillForm(DB.barrels[m[1]]);
-    else if ((m = /^([A-Z]\d{2,3})\/FILL$/.exec(up)) && DB.barrels[m[1]]) barrelPage(DB.barrels[m[1]]);
+    else if ((m = /^([A-Z]\d{2,3})\/FILL$/.exec(up)) && DB.barrels[m[1]]) fillForm(DB.barrels[m[1]]);
     else if (DB.barrels[up]) barrelPage(DB.barrels[up]);
     else if (parseCode(up)) bottlePage(parseCode(up));
     else if (DB.blends[up]) blendPage(up);

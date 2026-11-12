@@ -111,7 +111,8 @@ function doPost(e) {
       appendByHeading(tab(ss, "Log"), "Log", { Time: now, Barrel: clean(d.barrel, 10).toUpperCase(), Action: d.action,
         Blend: clean(d.blend, 20).toUpperCase(), Yeast: clean(d.yeast, 60), Gravity: num(d.gravity), pH: num(d.ph),
         Bottles: num(d.bottles), Priming: clean(d.priming, 40), Location: clean(d.location, 60),
-        Notes: clean(d.note, 500), By: clean(d.by, 40) });
+        Notes: clean(d.note, 500), By: clean(d.by, 40),
+        Filled: d.action === "Fill" ? dayDate(d.filled) : "" });   // the date picked on the Fill page
       // Keep the Barrels tab's Location up to date when a barrel moves.
       if (d.action === "Moved" && d.location) {
         upsertByHeading(tab(ss, "Barrels"), "Barrels", "Barrel",
