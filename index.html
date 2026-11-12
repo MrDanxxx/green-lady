@@ -522,7 +522,11 @@ footer a { color: inherit; }
     f.addEventListener("submit", ev => {
       ev.preventDefault();
       const v = inp.value.trim().toUpperCase(), p = parseCode(v);
-      if (p) location.hash = p.code;
+      if (p) {
+        const bad = bottleProblem(p);
+        if (bad) { fmsg.textContent = bad; fmsg.hidden = false; return; }
+        location.hash = p.code;
+      }
       else if (DB.barrels[v]) location.hash = v;
       else { fmsg.textContent = "That code isn't recognised. It looks like 26A-B07-031."; fmsg.hidden = false; }
     });
@@ -1084,6 +1088,21 @@ footer a { color: inherit; }
   }
 
   // ----- bottle page + rating -----
+  // Is this a real bottle? The blend must have been bottled from that barrel, and the
+  // number can't be more than the bottles recorded. Returns a message, or null if it's fine.
+  function bottleProblem(p) {
+    if (!DB.blends[p.blend]) return "There's no blend " + p.blend + ".";
+    if (!DB.barrels[p.barrel]) return "There's no barrel " + p.barrel + ".";
+    const run = DB.runs[p.run];
+    if (!run || !run.bottled) return "Blend " + p.blend + " from " + p.barrel + " hasn't been bottled.";
+    if (p.n) {
+      const n = Number(p.n);
+      if (!n) return "Bottle numbers start at 1.";
+      if (run.bottles && n > run.bottles) return "Blend " + p.blend + " from " + p.barrel + " was bottled into " + run.bottles + " bottles, so there's no bottle " + n + ".";
+    }
+    return null;
+  }
+
   function bottlePage(p) {
     const blend = DB.blends[p.blend], run = DB.runs[p.run], barrel = DB.barrels[p.barrel];
     setVintage(blend ? blend.vintage : null);
@@ -1109,7 +1128,8 @@ footer a { color: inherit; }
     if (!blend) top.appendChild(el("p", "muted", "No details for this blend yet."));
     $main.appendChild(top);
 
-    $main.appendChild(rateCard(p));
+    const bad = bottleProblem(p);   // e.g. a mistyped code or a link to a bottle that doesn't exist
+    $main.appendChild(bad ? add(card("How was it?"), el("div", "msg err", bad + " Check the code on the label.")) : rateCard(p));
     add($main, yeastCard(run && run.yeasts, (run && run.yeast) || (blend && blend.yeast)));   // no apples box on bottle pages
     if (run && (run.priming || run.note)) $main.appendChild(add(card("Bottling"), el("p", "notes", [run.priming ? "Priming: " + run.priming : "", run.note].filter(Boolean).join("\n"))));
   }
@@ -1129,6 +1149,8 @@ footer a { color: inherit; }
         ev.preventDefault();
         const n = parseInt(num.value, 10);
         if (!n || n < 1) { msg.textContent = "Type the bottle number, e.g. 31."; msg.hidden = false; return; }
+        const bad = bottleProblem(parseCode(p.run + "-" + n));
+        if (bad) { msg.textContent = bad; msg.hidden = false; return; }
         location.hash = p.run + "-" + String(n).padStart(3, "0");
       });
       return add(c, f, msg);
