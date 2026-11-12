@@ -346,7 +346,7 @@ footer a { color: inherit; }
       a[r.Rating]++; a.n++;
       String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => a.tags[t] = (a.tags[t] || 0) + 1);
       if (!runs[k]) runs[k] = { key: k, blend: p.blend, barrel: p.barrel };
-      if (p.n) (reviews[p.code] ||= []).push({ rating: r.Rating, tags: tidy(r.Tags), name: tidy(r.Name), comment: String(r.Comment || "").trim(), date: day(r.Time) });
+      if (p.n) (reviews[p.code] ||= []).push({ rating: r.Rating, tags: tidy(r.Tags), name: tidy(r.Name), comment: String(r.Comment || "").trim(), date: day(r.Time), row: r.Row });
       if (p.n) {   // each numbered bottle, for the Bottle rating table
         const b = bottleRatings[p.code] || (bottleRatings[p.code] = { code: p.code, blend: p.blend, barrel: p.barrel, n: 0, Good: 0, OK: 0, Poor: 0, tags: {} });
         b[r.Rating]++; b.n++;
@@ -1156,10 +1156,38 @@ footer a { color: inherit; }
     const ul = el("div", "list"); ul.style.marginTop = "12px";
     list.slice().reverse().forEach(x => {
       const r = RATE.find(q => q[0] === x.rating) || ["", "", x.rating];
-      const box = el("div");
+      const box = el("div"); box.style.flex = "1";
       add(box, el("div", "name", r[1] + " " + r[2] + (x.name ? " · " + x.name : "")),
           el("div", "sub", [x.date ? fmtDate(x.date) : null, x.tags].filter(Boolean).join(" · ")),
           x.comment ? el("p", "notes", "“" + x.comment + "”") : null);
+      // Censor: PIN, then the review and its rating are taken out of every score (the bottle's record stays)
+      const cz = el("button", "danger small", "Censor this review"); cz.type = "button"; cz.style.marginTop = "8px";
+      box.appendChild(cz);
+      if (!x.row) cz.hidden = true;
+      cz.addEventListener("click", () => {
+        cz.hidden = true;
+        const ask = el("div", "confirm");
+        const pin = input(store.get("gl-pin") || "", { type: "password", inputMode: "numeric" });
+        const yes = el("button", "danger-solid", "Yes, censor it"), no = el("button", "soft", "No");
+        yes.type = no.type = "button";
+        const em = el("div", "msg err"); em.hidden = true;
+        add(ask, el("p", null, "Censor this review – are you sure?"), field("PIN NUMBER", pin), add(el("div", "btns"), yes, no), em);
+        box.appendChild(ask);
+        no.addEventListener("click", () => { ask.remove(); cz.hidden = false; });
+        yes.addEventListener("click", async () => {
+          const show = t => { em.textContent = t; em.hidden = false; };
+          if (!pin.value.trim()) return show("Enter the PIN number.");
+          yes.disabled = true; yes.textContent = "Censoring…";
+          let k; try { k = await post({ kind: "removeRating", pin: pin.value.trim(), bottle: code, row: x.row }); } catch (er) { k = null; }
+          yes.disabled = false; yes.textContent = "Yes, censor it";
+          if (!k) return show("No connection. Try again.");
+          if (!k.ok) { if (/pin/i.test(k.error || "")) { store.del("gl-pin"); return show("Wrong PIN number."); } return show(k.error || "Couldn't censor it."); }
+          store.set("gl-pin", pin.value.trim());
+          FLASH = { text: "Review censored. Scores have been updated." };
+          try { await load(); } catch (er) {}
+          route();
+        });
+      });
       ul.appendChild(add(el("div", "row"), box));
     });
     $main.appendChild(add(c, ul));
@@ -1444,61 +1472,6 @@ footer a { color: inherit; }
     $main.appendChild(add(sheetWrap, sheet));
   }
 
-  // ----- PIN only: see one bottle's ratings in full and remove a spurious or malicious one -----
-  function manageCard(code) {
-    const c = card("Manage ratings");
-    c.appendChild(el("p", "sub", "See each rating for " + code + ", with names and comments. A removed rating stops counting everywhere (bottle, barrel and blend)."));
-    const f = el("form", "codebox"); f.style.marginTop = "10px";
-    const pin = input(store.get("gl-pin") || "", { type: "password", inputMode: "numeric", placeholder: "PIN number" });
-    pin.style.textTransform = "none";
-    const go = el("button", "primary", "Show ratings");
-    const msg = el("div", "msg err"); msg.hidden = true; msg.style.marginTop = "10px";
-    const out = el("div");
-    add(c, add(f, pin, go), msg, out);
-    const show = t => { msg.textContent = t; msg.hidden = false; };
-    async function list() {
-      msg.hidden = true;
-      if (!pin.value.trim()) return show("Enter the PIN number.");
-      go.disabled = true;
-      let r; try { r = await post({ kind: "ratingsFor", pin: pin.value.trim(), bottle: code }); } catch (e) { r = null; }
-      go.disabled = false;
-      if (!r) return show("No connection. Try again.");
-      if (!r.ok) { if (/pin/i.test(r.error || "")) store.del("gl-pin"); return show(/pin/i.test(r.error || "") ? "Wrong PIN number." : (r.error || "Couldn't load the ratings.")); }
-      store.set("gl-pin", pin.value.trim());
-      out.replaceChildren();
-      if (!r.ratings.length) { out.appendChild(el("p", "muted", "No ratings for this bottle.")); return; }
-      const ul = el("div", "list"); ul.style.marginTop = "12px";
-      r.ratings.forEach(x => {
-        const row = el("div", "row"), left = el("div"); left.style.flex = "1";
-        const e = (RATE.find(q => q[0] === x.rating) || ["", "", x.rating])[1];
-        add(left, el("div", "name", e + " " + x.rating + (x.name ? " · " + x.name : "")),
-            el("div", "sub", [fmtDate(day(x.time)), x.tags].filter(Boolean).join(" · ")),
-            x.comment ? el("div", "notes", "“" + x.comment + "”") : null);
-        const rm = el("button", "danger small", "Remove"); rm.type = "button";
-        rm.addEventListener("click", () => {   // in-page "are you sure?"
-          const ask = el("div", "confirm");
-          const yes = el("button", "danger-solid", "Yes, remove"), no = el("button", "soft", "No");
-          yes.type = no.type = "button";
-          add(ask, el("p", null, "Remove this rating – are you sure?"), add(el("div", "btns"), yes, no));
-          row.after(ask); rm.disabled = true;
-          no.addEventListener("click", () => { ask.remove(); rm.disabled = false; });
-          yes.addEventListener("click", async () => {
-            yes.disabled = true; yes.textContent = "Removing…";
-            let k; try { k = await post({ kind: "removeRating", pin: pin.value.trim(), bottle: code, row: x.row }); } catch (er) { k = null; }
-            if (!k || !k.ok) { ask.remove(); rm.disabled = false; return show(k && k.error ? k.error : "Couldn't remove it. Try again."); }
-            FLASH = { text: "Rating removed. Scores have been updated." };
-            try { await load(); } catch (er) {}
-            route();
-          });
-        });
-        ul.appendChild(add(row, left, rm));
-      });
-      out.appendChild(ul);
-    }
-    f.addEventListener("submit", ev => { ev.preventDefault(); list(); });
-    return c;
-  }
-
   // ----- League detail pages: blend / + barrel / + bottling, each with a Back button -----
   function leagueDetail(kind, code) {
     const p = kind === "blend" ? null : parseCode(code);
@@ -1582,7 +1555,6 @@ footer a { color: inherit; }
     if (run && run.note) ct.appendChild(el("p", "notes", run.note));
     if (!ct.querySelector(".stats, .notes")) ct.appendChild(el("p", "muted", "Not bottled yet."));
     $main.appendChild(ct);
-    $main.appendChild(manageCard(p.code));
   }
 
   // ---------- routing ----------

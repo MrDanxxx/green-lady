@@ -88,7 +88,7 @@ function doGet() {
   // Removed ratings (spurious or malicious) are left out, so every score updates.
   out.Ratings = out.Ratings.filter(function (r) { return !r.Removed; })
     .map(function (r) { return { Bottle: r.Bottle, Rating: r.Rating, Tags: r.Tags || "", Time: String(r.Time || "").slice(0, 10),
-      Name: r.Name || "", Comment: r.Comment || "" }; });   // reviews are public: everyone can read them
+      Name: r.Name || "", Comment: r.Comment || "", Row: r._row }; });   // reviews are public; Row lets the PIN holder censor one
   return reply(out);
 }
 
