@@ -26,21 +26,21 @@
   --bg: #f4efe2; --card: #fffdf7; --ink: #1d2a20; --muted: #5f6b5f; --line: #e2dccb;
   --green: #2f5d3a; --green-deep: #1c3a25; --apple: #7fae3a; --gold: #b8913c; --pill: #e6f0d6;
   --good: #3f8a3a; --ok: #c99a2e; --poor: #b5483a; --input: #ffffff;
-  --tag-bg: #fbe3b4; --tag-ink: #7a4510; --tag-line: #ecc98a;
+  --tag-bg: #fbe3b4; --tag-ink: #7a4510; --tag-line: #ecc98a; --btn: #2f5d3a;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #121a14; --card: #1b261e; --ink: #ecf0e6; --muted: #9fae9f; --line: #2c3a2f;
     --green: #8fc56a; --green-deep: #0e1d13; --apple: #9ccc55; --gold: #d8b25c; --pill: #26391f;
     --good: #6dbb5f; --ok: #e0b54a; --poor: #e07563; --input: #142017;
-    --tag-bg: #4a3818; --tag-ink: #f5d48f; --tag-line: #6b5226;
+    --tag-bg: #4a3818; --tag-ink: #f5d48f; --tag-line: #6b5226; --btn: #3b7347;
   }
 }
 :root[data-theme="dark"] {
   --bg: #121a14; --card: #1b261e; --ink: #ecf0e6; --muted: #9fae9f; --line: #2c3a2f;
   --green: #8fc56a; --green-deep: #0e1d13; --apple: #9ccc55; --gold: #d8b25c; --pill: #26391f;
   --good: #6dbb5f; --ok: #e0b54a; --poor: #e07563; --input: #142017;
-    --tag-bg: #4a3818; --tag-ink: #f5d48f; --tag-line: #6b5226;
+    --tag-bg: #4a3818; --tag-ink: #f5d48f; --tag-line: #6b5226; --btn: #3b7347;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 Inter, system-ui, sans-serif; }
@@ -87,18 +87,18 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .list a:hover .name { color: var(--green); }
 .list .right { text-align: right; flex: none; }
 .list .row > a { flex: 1; min-width: 0; border-top: 0; padding: 0; }
-.list a.edit { flex: none; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; }
+.list a.edit { flex: none; padding: 6px 12px; border: 1px solid var(--btn); border-radius: 8px; font-size: 14px; font-weight: 600; background: var(--btn); color: #fff; }
 .muted, .empty { color: var(--muted); }
 .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 button, .button { font: inherit; font-weight: 600; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 12px; cursor: pointer; text-align: center; text-decoration: none; display: inline-block; }
-button.primary, .button.primary { background: var(--green); border-color: var(--green); color: var(--card); }
+button.primary, .button.primary { background: var(--btn); border-color: var(--btn); color: #fff; }
 button:disabled { opacity: .5; cursor: default; }
 .full { width: 100%; }
 button.small, .button.small { padding: 6px 14px; font-size: 14px; flex: none; }
 .bhead { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 10px; }
 .bhead h1 { font-family: Fraunces, Georgia, serif; margin: 0; font-size: 28px; line-height: 1.15; white-space: nowrap; }
 .bhead .pill { justify-self: center; background: var(--tag-bg); color: var(--tag-ink); border: 1px solid var(--tag-line); font-size: 17px; font-weight: 700; padding: 7px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
-.bhead .button.small { padding: 8px 12px; font-size: 15px; font-weight: 700; line-height: 1.2; max-width: 120px; border: 2px solid var(--green); color: var(--green); }
+.bhead .button.small { padding: 8px 12px; font-size: 15px; font-weight: 700; line-height: 1.2; max-width: 120px; }
 .bhead .sub { grid-column: 1 / -1; margin-top: 2px; }
 @media (max-width: 440px) {
   .bhead { column-gap: 8px; }
@@ -448,7 +448,7 @@ footer a { color: inherit; }
           if (d) right.appendChild(el("div", "sub", "filled " + d));
         } else right.appendChild(el("span", "pill empty", "Empty"));
         add(a, left, right);
-        const ed = el("a", "edit", "Edit"); ed.href = "#" + b.id + "/edit";
+        const ed = el("a", "edit primary", "Edit"); ed.href = "#" + b.id + "/edit";
         ed.setAttribute("aria-label", "Edit " + vesselName(b));
         list.appendChild(add(el("div", "row"), a, ed));
       });
@@ -562,7 +562,7 @@ footer a { color: inherit; }
     const top = card(), subLine = el("div", "sub", [b.size, b.type, b.location].filter(Boolean).join(" · "));
     if (cur) {
       // Barrel number · blend (centred between) · Edit fill details (top right)
-      const head = el("div", "bhead"), ef = el("a", "button small", "Edit fill details");
+      const head = el("div", "bhead"), ef = el("a", "button primary small", "Edit fill details");
       ef.href = "#" + b.id + "/fill";
       add(head, el("h1", null, vesselName(b)), el("span", "pill", "Blend " + cur.blend), ef, subLine);
       top.appendChild(head);
@@ -612,7 +612,7 @@ footer a { color: inherit; }
       const slot = el("div"), fb = el("button", "primary full", LABEL.Fill);
       fb.type = "button";
       fb.addEventListener("click", () => { slot.replaceChildren(actionForm(b, "Fill")); });
-      const ed = el("a", "button full", "Edit barrel details");
+      const ed = el("a", "button primary full", "Edit barrel details");
       ed.href = "#" + b.id + "/edit"; ed.style.marginTop = "10px";
       return add(card(), fb, ed, slot);
     }
@@ -1096,7 +1096,7 @@ footer a { color: inherit; }
     });
     if (!list.children.length) list.appendChild(el("div", "muted", "Not in any barrel yet."));
     $main.appendChild(add(c, list));
-    const ce = card(), ed = el("a", "button full", "Edit this blend");
+    const ce = card(), ed = el("a", "button primary full", "Edit this blend");
     ed.href = "#blend/" + id + "/edit";
     $main.appendChild(add(ce, ed));
   }
