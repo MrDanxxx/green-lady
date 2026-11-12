@@ -177,7 +177,11 @@ footer a { color: inherit; }
   const numv = x => (x === "" || x == null || !isFinite(Number(x))) ? null : Number(x);
   function toDate(s) { const d = new Date(s + "T12:00:00"); return isNaN(d) ? null : d; }
   function fmtDate(s) { const d = toDate(s); return d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : (s || ""); }
-  function daysBetween(a, b) { const x = toDate(a), y = b ? toDate(b) : new Date(); return x && y ? Math.floor((y - x) / 86400000) : null; }
+  function daysBetween(a, b) {
+    const x = toDate(a), y = b ? toDate(b) : new Date();
+    if (!x || !y) return null;
+    return Math.round((new Date(y.getFullYear(), y.getMonth(), y.getDate()) - new Date(x.getFullYear(), x.getMonth(), x.getDate())) / 86400000);
+  }
   function ago(s) { const n = daysBetween(s); return n == null || n < 0 ? null : n === 0 ? "today" : n + (n === 1 ? " day ago" : " days ago"); }
   function months(a, b) { const n = daysBetween(a, b); return n == null || n < 0 ? null : (n / 30.44); }
   const sg = g => (typeof g === "number" ? g.toFixed(3) : "");
@@ -218,7 +222,7 @@ footer a { color: inherit; }
       let v = numv(r.Vintage);
       if (v == null) { const m = /^(\d+)/.exec(id); v = m ? Number(m[1]) : null; }
       if (v != null && v >= 100) v = v % 100;
-      blends[id] = { id, vintage: v, juiced: day(r.Juiced), apples: parseApples(r.Apples), gravity: numv(r.Gravity), ph: numv(r.pH), yeast: tidy(r.Yeast), notes: String(r.Notes || "").trim() };
+      blends[id] = { id, vintage: v, juiced: day(r.Juiced), apples: parseApples(r.Apples), gravity: numv(r.Gravity), ph: numv(r.pH), yeast: tidy(r.Yeast || r.Yiest), notes: String(r.Notes || "").trim() };
     });
     (raw.Barrels || []).forEach(r => {
       if (!r.Barrel) return;
@@ -229,15 +233,22 @@ footer a { color: inherit; }
       barrels[id] = { id, size: tidy(size), type: tidy(r.Type), location: tidy(r.Location), notes: tidy(r.Notes), current: null, history: [] };
       order.push(id);
     });
-    (raw.Log || []).forEach(e => {
+    // Accept the Sheet's own headings too (older script versions don't rename them).
+    const log = (raw.Log || []).map(e => Object.assign({}, e, { Time: e.Time || e.Date, Yeast: e.Yeast || e.Yiest }))
+      .map((e, i) => ({ e, i, t: String(e.Time || "") }))
+      .sort((a, b) => (a.t && b.t && a.t !== b.t) ? (a.t < b.t ? -1 : 1) : a.i - b.i).map(x => x.e);
+    log.forEach(e => {
       const id = tidy(e.Barrel).toUpperCase(), b = barrels[id];
       if (!b) return;
-      const ev = { date: day(e.Time), action: tidy(e.Action), blend: tidy(e.Blend).toUpperCase(), gravity: numv(e.Gravity), ph: numv(e.pH),
-                   bottles: numv(e.Bottles), priming: tidy(e.Priming), location: tidy(e.Location), note: String(e.Note || "").trim(), by: tidy(e.By) };
+      const blendId = tidy(e.Blend).toUpperCase();
+      let action = tidy(e.Action);
+      action = action ? action.charAt(0).toUpperCase() + action.slice(1).toLowerCase() : (blendId ? "Fill" : "Note");
+      const ev = { date: day(e.Time), action, blend: blendId, yeast: tidy(e.Yeast), gravity: numv(e.Gravity), ph: numv(e.pH),
+                   bottles: numv(e.Bottles), priming: tidy(e.Priming), location: tidy(e.Location), note: String(e.Notes || e.Note || "").trim(), by: tidy(e.By) };
       switch (ev.action) {
         case "Fill":
           if (b.current) b.history.push(b.current);
-          b.current = { blend: ev.blend, filled: ev.date, events: [], by: ev.by };
+          b.current = { blend: ev.blend, filled: ev.date, yeast: ev.yeast, events: ev.note || ev.gravity != null || ev.ph != null ? [ev] : [], by: ev.by };
           break;
         case "Moved":
           if (ev.location) b.location = ev.location;
@@ -251,7 +262,7 @@ footer a { color: inherit; }
           const blend = ev.blend || fill.blend;
           const fg = ev.gravity != null ? ev.gravity : lastGravity(fill.events);
           fill.bottled = ev;
-          runs[blend + "-" + id] = { key: blend + "-" + id, blend, barrel: id, filled: fill.filled, bottled: ev.date, bottles: ev.bottles,
+          runs[blend + "-" + id] = { key: blend + "-" + id, blend, barrel: id, yeast: fill.yeast || "", filled: fill.filled, bottled: ev.date, bottles: ev.bottles,
                                      priming: ev.priming, fg, by: ev.by, note: ev.note, events: fill.events };
           b.history.push(fill);
           b.current = null;
@@ -402,10 +413,10 @@ footer a { color: inherit; }
     $main.appendChild(c3);
   }
 
-  function blendStats(grid, blend) {
-    if (!blend) return;
+  function blendStats(grid, blend, yeast) {
+    if (!blend) { stat(grid, "Yeast", yeast, null, true); return; }
     if (blend.juiced) stat(grid, "Juiced", fmtDate(blend.juiced), null, true);
-    stat(grid, "Yeast", blend.yeast, null, true);
+    stat(grid, "Yeast", yeast || blend.yeast, null, true);
     stat(grid, "Starting gravity", blend.gravity != null ? sg(blend.gravity) : null,
          blend.gravity != null ? "Potential " + abv(blend.gravity, 1.0).toFixed(1) + "% ABV" : null);
     stat(grid, "Starting pH", blend.ph != null ? String(blend.ph) : null);
@@ -425,7 +436,7 @@ footer a { color: inherit; }
     if (cur) {
       const grid = el("div", "stats");
       stat(grid, "Filled", fmtDate(cur.filled), ago(cur.filled), true);
-      blendStats(grid, blend);
+      blendStats(grid, blend, cur.yeast);
       const g = lastGravity(cur.events);
       if (g != null && blend && blend.gravity != null && g < blend.gravity) {
         stat(grid, "Latest gravity", sg(g));
@@ -464,7 +475,7 @@ footer a { color: inherit; }
 
   // ----- crew input -----
   const FIELDS = {
-    Fill:    [["blend", "Which blend?", "blend"], ["note", "Note", "text"]],
+    Fill:    [["blend", "Which blend?", "blend"], ["yeast", "Yeast", "yeast"], ["note", "Note", "text"]],
     Reading: [["gravity", "Gravity", "gravity"], ["ph", "pH", "ph"], ["note", "Note", "text"]],
     Bottled: [["bottles", "How many bottles?", "int"], ["gravity", "Final gravity", "gravity"], ["priming", "Priming sugar", "short", "e.g. 6 g per litre, or none"], ["note", "Note", "text"]],
     Moved:   [["location", "Moved to", "location"], ["note", "Note", "text"]],
@@ -509,6 +520,14 @@ footer a { color: inherit; }
         if (kind === "ph") { inp.inputMode = "decimal"; inp.placeholder = "3.5"; }
         if (kind === "int") { inp.inputMode = "numeric"; inp.placeholder = "23"; }
         if (kind === "short" && hint) inp.placeholder = hint;
+        if (kind === "yeast") {
+          const dl = el("datalist"); dl.id = "yeasts";
+          const ys = new Set();
+          Object.values(DB.blends).forEach(x => x.yeast && ys.add(x.yeast));
+          DB.order.forEach(id => { const bb = DB.barrels[id]; [bb.current, ...bb.history].forEach(f => f && f.yeast && ys.add(f.yeast)); });
+          ys.forEach(x => { const o = el("option"); o.value = x; dl.appendChild(o); });
+          l.appendChild(dl); inp.setAttribute("list", "yeasts"); inp.placeholder = "e.g. SafCider TF-6";
+        }
         if (kind === "location") {
           const dl = el("datalist"); dl.id = "locs";
           [...new Set(DB.order.map(id => DB.barrels[id].location).filter(Boolean))].forEach(x => { const o = el("option"); o.value = x; dl.appendChild(o); });
@@ -519,6 +538,12 @@ footer a { color: inherit; }
       l.appendChild(inp);
       f.appendChild(l);
     });
+    if (inputs.blend && inputs.yeast) {
+      const fillYeast = () => { const bl = DB.blends[inputs.blend.value]; if (bl && bl.yeast && !inputs.yeast.dataset.typed) inputs.yeast.value = bl.yeast; };
+      inputs.yeast.addEventListener("input", () => { inputs.yeast.dataset.typed = "1"; });
+      inputs.blend.addEventListener("change", fillYeast);
+      fillYeast();
+    }
     const two = el("div", "two");
     const ln = el("label"); ln.appendChild(document.createTextNode("Your name"));
     const by = el("input"); by.value = store.get("gl-name") || ""; by.autocomplete = "given-name"; ln.appendChild(by);
@@ -588,8 +613,8 @@ footer a { color: inherit; }
     const grid = el("div", "stats");
     if (blend) {
       if (blend.juiced) stat(grid, "Juiced", fmtDate(blend.juiced), null, true);
-      stat(grid, "Yeast", blend.yeast, null, true);
     }
+    stat(grid, "Yeast", (run && run.yeast) || (blend && blend.yeast), null, true);
     if (run && run.bottled) stat(grid, "Bottled", fmtDate(run.bottled), ago(run.bottled), true);
     if (run && run.filled && run.bottled) { const m = months(run.filled, run.bottled); if (m != null) stat(grid, "Time in barrel", m < 1.5 ? Math.round(m * 30.44) + " days" : m.toFixed(1) + " months"); }
     if (blend && blend.gravity != null) stat(grid, "Starting gravity", sg(blend.gravity), blend.ph != null ? "pH " + blend.ph : null);
@@ -720,7 +745,7 @@ footer a { color: inherit; }
       left.style.flex = "1";
       const m = r.filled && r.bottled ? months(r.filled, r.bottled) : null;
       add(left, el("div", "name", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(r.blend) + " · " + r.barrel),
-          el("div", "sub", [bl ? bl.apples.map(x => x.variety).join(", ") : null, bl && bl.yeast, br && br.size, m != null ? m.toFixed(1) + " months in barrel" : null].filter(Boolean).join(" · ")),
+          el("div", "sub", [bl ? bl.apples.map(x => x.variety).join(", ") : null, r.yeast || (bl && bl.yeast), br && br.size, m != null ? m.toFixed(1) + " months in barrel" : null].filter(Boolean).join(" · ")),
           ratingBar(agg));
       const right = el("div", "right"); right.appendChild(el("div", "score", Math.round(score(agg) * 100) + "%"));
       add(a, el("span", "rank", String(i + 1)), left, right);
