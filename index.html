@@ -125,7 +125,7 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Barrels list: one table per location */
 .btable { display: grid; }
 .bt-row { position: relative; display: grid; grid-template-columns: 1fr 1.1fr 1.5fr 44px; align-items: center; gap: 8px; padding: 11px 0; border-top: 1px solid var(--line); }
-.bt-head { padding: 0 0 8px; border-top: 0; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.bt-head { padding: 0 0 8px; border-top: 0; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); font-weight: 800; }
 .bt-head > :last-child, .bt-edit { justify-self: center; text-align: center; }
 .bt-open { position: absolute; inset: 0; }   /* tap anywhere on the row to open the barrel */
 .bt-name { font-weight: 700; }
@@ -515,7 +515,7 @@ footer a { color: inherit; }
     DB.order.forEach(id => { const b = DB.barrels[id]; (groups[b.location || "Unknown"] ||= []).push(b); });
     Object.keys(groups).forEach(loc => {
       // a table per location: Barrel | Juice Blend | Fill Date | Edit (tick box)
-      const c = card(loc), list = el("div", "btable");
+      const c = card("Location: " + loc), list = el("div", "btable");
       const hd = el("div", "bt-row bt-head");
       ["Barrel", "Juice Blend", "Fill Date", "Edit"].forEach(t => hd.appendChild(el("div", null, t)));
       list.appendChild(hd);
