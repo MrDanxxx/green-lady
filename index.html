@@ -1094,7 +1094,7 @@ footer a { color: inherit; }
     $main.appendChild(top);
 
     $main.appendChild(rateCard(p));
-    add($main, applesCard(blend), yeastCard(run && run.yeasts, (run && run.yeast) || (blend && blend.yeast)));
+    add($main, yeastCard(run && run.yeasts, (run && run.yeast) || (blend && blend.yeast)));   // no apples box on bottle pages
     if (run && (run.priming || run.note)) $main.appendChild(add(card("Bottling"), el("p", "notes", [run.priming ? "Priming: " + run.priming : "", run.note].filter(Boolean).join("\n"))));
   }
 
