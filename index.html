@@ -627,17 +627,14 @@ footer a { color: inherit; }
     return add(c, noteSlot);
   }
   function finishCard(b) {
-    const btns = el("div", "btns"), slot = el("div");
-    const bo = el("a", "button primary", LABEL.Bottled);   // its own page
-    bo.href = "#" + b.id + "/bottle";
-    btns.appendChild(bo);
-    ["Empty"].forEach(a => {
-      const bt = el("button", "primary", LABEL[a]);
-      bt.type = "button";
-      bt.addEventListener("click", () => { slot.replaceChildren(actionForm(b, a)); slot.scrollIntoView({ behavior: "smooth", block: "start" }); });
+    // Bottle it and Empty it each open their own page.
+    const btns = el("div", "btns");
+    [["Bottled", "bottle"], ["Empty", "empty"]].forEach(([a, path]) => {
+      const bt = el("a", "button primary", LABEL[a]);
+      bt.href = "#" + b.id + "/" + path;
       btns.appendChild(bt);
     });
-    return add(card(), btns, slot);
+    return add(card(), btns);
   }
 
   function actionForm(b, action, bare) {
@@ -930,6 +927,30 @@ footer a { color: inherit; }
       if (!await pinPost(body, auth, save, show)) return;
       FLASH = { text: "Bottled: " + b.id + "." };
       if (n) FLASH.link = { text: "Print " + n + " bottle labels", href: "#labels/" + run + "/" + n };
+      location.hash = b.id;
+    });
+  }
+
+  // ----- Empty it: its own page with a back button -----
+  function emptyForm(b) {
+    const cur = b.current, blend = DB.blends[cur.blend];
+    const f = formCard("Empty " + vesselName(b), "barrels");
+    const back = el("a", "button soft small", "‹ Back"); back.href = "#" + b.id; back.style.marginBottom = "12px";
+    $main.insertBefore(back, $main.firstChild);
+    const grid = el("div", "stats");
+    grid.style.margin = "0 0 6px";
+    stat(grid, "Blend", cur.blend, blend ? blend.apples.map(x => x.variety).join(", ") : null, true);
+    stat(grid, "Filled", fmtDate(cur.filled), ago(cur.filled), true);
+    f.appendChild(grid);
+    const why = el("textarea"); why.placeholder = "e.g. racked into B12, or spoiled";
+    f.appendChild(field("Why is it being emptied?", why));
+    const auth = pinFields(f);
+    const { save, show } = formEnd(f, "Empty it", "#" + b.id);
+    f.addEventListener("submit", async ev => {
+      ev.preventDefault();
+      const body = { kind: "log", action: "Empty", barrel: b.id, blend: cur.blend, note: why.value.trim() };
+      if (!await pinPost(body, auth, save, show)) return;
+      FLASH = { text: "Emptied: " + b.id + "." };
       location.hash = b.id;
     });
   }
@@ -1323,6 +1344,7 @@ footer a { color: inherit; }
     else if ((m = /^([A-Z]\d{2,3})\/EDIT$/.exec(up)) && DB.barrels[m[1]]) barrelForm(DB.barrels[m[1]]);
     else if ((m = /^([A-Z]\d{2,3})\/FILL$/.exec(up)) && DB.barrels[m[1]]) fillForm(DB.barrels[m[1]]);
     else if ((m = /^([A-Z]\d{2,3})\/BOTTLE$/.exec(up)) && DB.barrels[m[1]]) { const bb = DB.barrels[m[1]]; if (bb.current) bottleForm(bb); else barrelPage(bb); }
+    else if ((m = /^([A-Z]\d{2,3})\/EMPTY$/.exec(up)) && DB.barrels[m[1]]) { const bb = DB.barrels[m[1]]; if (bb.current) emptyForm(bb); else barrelPage(bb); }
     else if (DB.barrels[up]) barrelPage(DB.barrels[up]);
     else if (parseCode(up)) bottlePage(parseCode(up));
     else if (DB.blends[up]) blendPage(up);
