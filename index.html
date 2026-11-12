@@ -1446,7 +1446,8 @@ footer a { color: inherit; }
     cn.appendChild((fill && notesTable(fill.events)) || el("p", "muted", "No notes."));
     $main.appendChild(cn);
 
-    // the bottling
+    // the bottling (bottle details only, not barrel details)
+    if (kind === "barrel") { add($main, ageCard(x => x.run === p.run)); return; }
     const ct = card("The bottling"), gt = el("div", "stats");
     gt.style.marginTop = "0";
     if (run && run.bottled) stat(gt, "Bottled", fmtDate(run.bottled), ago(run.bottled), true);
@@ -1462,7 +1463,6 @@ footer a { color: inherit; }
     if (run && run.note) ct.appendChild(el("p", "notes", run.note));
     if (!ct.querySelector(".stats, .notes")) ct.appendChild(el("p", "muted", "Not bottled yet."));
     $main.appendChild(ct);
-    if (kind === "barrel") add($main, ageCard(x => x.run === p.run));
   }
 
   // ---------- routing ----------
