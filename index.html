@@ -1284,14 +1284,14 @@ footer a { color: inherit; }
       });
       rows = Object.keys(byBlend).map(id => {
         const bl = DB.blends[id];
-        return { href: "#blend/" + id, name: (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(id),
+        return { href: "#league/blend/" + id, name: (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(id),
                  sub: bl ? bl.apples.map(x => x.variety).join(", ") : "", agg: byBlend[id] };
       });
     } else if (level === "barrels") {
       rows = Object.values(DB.runs).filter(r => DB.ratings[r.key] && DB.ratings[r.key].n).map(r => {
         const bl = DB.blends[r.blend], br = DB.barrels[r.barrel];
         const m = r.filled && r.bottled ? months(r.filled, r.bottled) : null;
-        return { href: "#" + r.key, name: (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(r.blend) + " · " + r.barrel,
+        return { href: "#league/barrel/" + r.key, name: (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(r.blend) + " · " + r.barrel,
                  sub: [bl ? bl.apples.map(x => x.variety).join(", ") : null, r.yeast || (bl && bl.yeast), br && br.size, m != null ? m.toFixed(1) + " months in barrel" : null].filter(Boolean).join(" · "),
                  agg: DB.ratings[r.key] };
       });
@@ -1299,7 +1299,7 @@ footer a { color: inherit; }
       rows = Object.values(DB.bottleRatings).map(b => {
         const bl = DB.blends[b.blend];
         const aged = b.ages.length ? "tasted " + ageText(Math.max(...b.ages)) + " after bottling" : null;
-        return { href: "#" + b.code, name: "Bottle " + b.code, sub: [(bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(b.blend) + " · " + b.barrel, aged].filter(Boolean).join(" · "), agg: b };
+        return { href: "#league/bottle/" + b.code, name: "Bottle " + b.code, sub: [(bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(b.blend) + " · " + b.barrel, aged].filter(Boolean).join(" · "), agg: b };
       });
     }
     rows.sort((a, b) => score(b.agg) - score(a.agg) || b.agg.n - a.agg.n);
@@ -1375,6 +1375,82 @@ footer a { color: inherit; }
     $main.appendChild(add(sheetWrap, sheet));
   }
 
+  // ----- League detail pages: blend / + barrel / + bottling, each with a Back button -----
+  function leagueDetail(kind, code) {
+    const p = kind === "blend" ? null : parseCode(code);
+    const blendId = kind === "blend" ? code : p.blend;
+    const bl = DB.blends[blendId], run = p ? DB.runs[p.run] : null, br = p ? DB.barrels[p.barrel] : null;
+    setVintage(bl ? bl.vintage : null);
+    setTab("league");
+    $main.replaceChildren();
+    window.scrollTo(0, 0);
+    const back = el("a", "button soft small", "‹ Back");
+    back.href = kind === "blend" ? "#league" : kind === "barrel" ? "#league/barrels" : "#league/bottles";
+    back.style.marginBottom = "12px";
+    $main.appendChild(back);
+
+    // heading + this entry's rating
+    let agg, title;
+    if (kind === "blend") {
+      agg = { Good: 0, OK: 0, Poor: 0, n: 0, tags: {} };
+      Object.keys(DB.ratings).forEach(k => {
+        const r = DB.runs[k], a = DB.ratings[k]; if (!r || r.blend !== blendId) return;
+        ["Good", "OK", "Poor", "n"].forEach(x => agg[x] += a[x]);
+        Object.entries(a.tags).forEach(([x, v]) => agg.tags[x] = (agg.tags[x] || 0) + v);
+      });
+      title = (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(blendId);
+    } else if (kind === "barrel") {
+      agg = DB.ratings[p.run]; title = "Blend " + blendLetter(p.blend) + " · " + (br ? vesselName(br) : p.barrel);
+    } else {
+      agg = DB.bottleRatings[p.code]; title = "Bottle " + p.code;
+    }
+    document.title = title + " · Green Lady";
+    const top = card(), head = el("div", "head");
+    add(head, el("h1", null, title), agg && agg.n ? el("span", "score", Math.round(score(agg) * 100) + "%") : null);
+    add(top, head, ratingBar(agg));
+    $main.appendChild(top);
+
+    // the blend
+    const cb = card("The blend" + (bl ? " · " + blendId : "")), gb = el("div", "stats");
+    gb.style.marginTop = "0";
+    if (bl) { blendStats(gb, bl); if (bl.yeast) stat(gb, "Yeast", bl.yeast, null, true); }
+    if (gb.children.length) cb.appendChild(gb); else cb.appendChild(el("p", "muted", "No details for this blend yet."));
+    $main.appendChild(cb);
+    add($main, applesCard(bl));
+    if (kind === "blend") {
+      $main.appendChild(ageCard(x => DB.runs[x.run] && DB.runs[x.run].blend === blendId) || document.createTextNode(""));
+      return;
+    }
+
+    // the barrel
+    const cr = card("The barrel · " + p.barrel), gr = el("div", "stats");
+    gr.style.marginTop = "0";
+    if (br) { stat(gr, "Barrel", [br.size, br.type].filter(Boolean).join(" · ") || null, br.location || null, true); }
+    if (run && run.filled) stat(gr, "Filled", fmtDate(run.filled), null, true);
+    if (run && run.filled && run.bottled) { const m = months(run.filled, run.bottled); if (m != null) stat(gr, "Time in barrel", m < 1.5 ? Math.round(m * 30.44) + " days" : m.toFixed(1) + " months"); }
+    if (run && run.yeast) stat(gr, "Yeast used", run.yeast, null, true);
+    if (gr.children.length) cr.appendChild(gr); else cr.appendChild(el("p", "muted", "No barrel details."));
+    $main.appendChild(cr);
+
+    // the bottling
+    const ct = card("The bottling"), gt = el("div", "stats");
+    gt.style.marginTop = "0";
+    if (run && run.bottled) stat(gt, "Bottled", fmtDate(run.bottled), ago(run.bottled), true);
+    if (run && run.bottles) stat(gt, "Bottles", String(run.bottles));
+    if (run && run.fg != null) stat(gt, "Final gravity", sg(run.fg));
+    if (bl && bl.gravity != null && run && run.fg != null) stat(gt, "Strength", "≈ " + abv(bl.gravity, run.fg).toFixed(1) + "%", "ABV");
+    if (run && run.priming) stat(gt, "Priming sugar", run.priming, null, true);
+    if (kind === "bottle") {
+      const b = DB.bottleRatings[p.code];
+      if (b && b.ages.length) stat(gt, "Age when tasted", ageText(Math.max(...b.ages)), "in the bottle", true);
+    }
+    if (gt.children.length) ct.appendChild(gt);
+    if (run && run.note) ct.appendChild(el("p", "notes", run.note));
+    if (!ct.querySelector(".stats, .notes")) ct.appendChild(el("p", "muted", "Not bottled yet."));
+    $main.appendChild(ct);
+    if (kind === "barrel") add($main, ageCard(x => x.run === p.run));
+  }
+
   // ---------- routing ----------
   function route() {
     window.scrollTo(0, 0);
@@ -1390,6 +1466,7 @@ footer a { color: inherit; }
     else if (up === "LEAGUE") league();
     else if (up === "LEAGUE/BARRELS") league("barrels");
     else if (up === "LEAGUE/BOTTLES") league("bottles");
+    else if ((m = /^LEAGUE\/(BLEND|BARREL|BOTTLE)\/(.+)$/.exec(up)) && (m[1] === "BLEND" || parseCode(m[2]))) leagueDetail(m[1].toLowerCase(), m[1] === "BLEND" ? m[2] : parseCode(m[2]).code);
     else if (/^labels\//i.test(raw)) { FLASH = null; return labels(raw.slice(7)); }
     else if ((m = /^BLEND\/([^/]+)\/EDIT$/.exec(up)) && DB.blends[m[1]]) blendForm(DB.blends[m[1]]);
     else if ((m = /^BLEND\/([^/]+)$/.exec(up)) && DB.blends[m[1]]) blendPage(m[1]);
