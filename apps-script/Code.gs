@@ -21,7 +21,7 @@
 const CREW_PIN = "1234";   // <-- CHANGE THIS
 
 const TABS = {
-  Barrels: ["Barrel", "Size", "Type", "Location", "Notes"],
+  Barrels: ["Barrel", "Size", "Type", "Location", "Notes", "Removed"],
   Blends:  ["Blend", "Vintage", "Juiced", "Apples", "Gravity", "pH", "Yeast", "Notes"],
   Log:     ["Time", "Barrel", "Action", "Blend", "Yeast", "Gravity", "pH", "Bottles", "Priming", "Location", "Notes", "By", "Filled"],
   Ratings: ["Time", "Bottle", "Rating", "Tags", "Name", "Comment"],
@@ -124,8 +124,14 @@ function doPost(e) {
       if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong PIN number" });
       const id = clean(d.barrel, 10).toUpperCase();
       if (!/^[BD]\d{2,3}$/.test(id)) return reply({ ok: false, error: "Barrel numbers look like B21 or D03" });
-      const r = upsertByHeading(tab(ss, "Barrels"), "Barrels", "Barrel", { Barrel: id, Size: numOrText(d.size, 20),
-        Type: clean(d.type, 40), Location: clean(d.location, 60), Notes: clean(d.notes, 500) }, d.isNew ? "new" : "edit");
+      // Remove = mark the row with the date (kept so bottles from it keep their history).
+      if (d.remove) {
+        const r = upsertByHeading(tab(ss, "Barrels"), "Barrels", "Barrel", { Barrel: id, Removed: now }, "edit", { Removed: "d mmm yyyy" });
+        return reply(r);
+      }
+      const vals = { Barrel: id, Size: numOrText(d.size, 20), Type: clean(d.type, 40), Location: clean(d.location, 60), Notes: clean(d.notes, 500) };
+      if (d.isNew) vals.Removed = "";   // re-adding a removed barrel number brings it back
+      const r = upsertByHeading(tab(ss, "Barrels"), "Barrels", "Barrel", vals, d.isNew ? "new" : "edit");
       if (!r.ok) return reply(r);
       if (d.moved && d.location) appendByHeading(tab(ss, "Log"), "Log", { Time: now, Barrel: id, Action: "Moved",
         Location: clean(d.location, 60), By: clean(d.by, 40) });
@@ -242,7 +248,9 @@ function upsertByHeading(sh, tabKey, keyName, values, mode, formats) {
       if (String(keys[i][0]).trim().toUpperCase() === id) { row = i + 2; break; }
     }
   }
-  if (row && mode === "new") return { ok: false, error: id + " already exists" };
+  const removedCol = cols.where.Removed;
+  const wasRemoved = row && removedCol != null && String(sh.getRange(row, removedCol + 1).getValue()).trim() !== "";
+  if (row && mode === "new" && !wasRemoved) return { ok: false, error: id + " already exists" };
   if (!row && mode === "edit") return { ok: false, error: id + " isn't in the Sheet" };
   if (!row) row = sh.getLastRow() + 1;
   Object.keys(values).forEach(function (k) {
