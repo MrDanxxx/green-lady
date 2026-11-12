@@ -54,8 +54,8 @@ header .vintage { font-family: Fraunces, Georgia, serif; font-size: 18px; color:
 main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
 .card h2 { font-family: Fraunces, Georgia, serif; font-size: 20px; margin: 0 0 12px; color: var(--green); font-weight: 600; }
-.confirm { margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
-.confirm p { margin: 0 0 10px; font-weight: 600; text-align: center; }
+.confirm { margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 10px; }
+.confirm p { margin: 0; font-weight: 600; text-align: center; }
 button.danger-solid { background: var(--poor); border-color: var(--poor); color: #fff; }
 button.danger { color: var(--poor); border-color: color-mix(in srgb, var(--poor) 45%, transparent); background: transparent; }
 .cardhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
@@ -883,9 +883,9 @@ footer a { color: inherit; }
     const back = el("a", "button soft small", "‹ Back"); back.href = "#" + b.id; back.style.marginBottom = "12px";
     $main.insertBefore(back, $main.firstChild);
 
-    // what's in the barrel
-    const info = card(), grid = el("div", "stats");
-    grid.style.marginTop = "0";
+    // what's in the barrel (under the page heading)
+    const grid = el("div", "stats");
+    grid.style.margin = "0 0 6px";
     stat(grid, "Blend", cur.blend, blend ? blend.apples.map(x => x.variety).join(", ") : null, true);
     stat(grid, "Filled", fmtDate(cur.filled), ago(cur.filled), true);
     if (blend && blend.gravity != null) stat(grid, "Starting gravity", sg(blend.gravity));
@@ -893,8 +893,7 @@ footer a { color: inherit; }
     if (lg != null) stat(grid, "Latest gravity", sg(lg));
     if (cur.yeast) stat(grid, "Yeast", cur.yeast, null, true);
     if (b.size) stat(grid, "Barrel size", b.size, null, true);
-    info.appendChild(grid);
-    $main.insertBefore(info, f.parentNode);
+    f.appendChild(grid);
 
     const bottles = input("", { inputMode: "numeric", placeholder: "e.g. 23" });
     const fg = input("", { inputMode: "decimal", placeholder: "e.g. 1.000" });
