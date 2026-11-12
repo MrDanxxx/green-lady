@@ -410,7 +410,6 @@ footer a { color: inherit; }
     if (message) $main.appendChild(el("div", "msg err gap", message));
     const inUse = DB.order.filter(id => DB.barrels[id].current).length;
     const top = tabHead("Barrels", DB.order.length + " in total · " + inUse + " in use · " + (DB.order.length - inUse) + " empty", "+ Add barrel", "#barrels/new");
-    top.appendChild(el("p", "sub", "Tap a barrel to fill it, add a reading, record bottling or move it."));
     $main.appendChild(top);
 
     const groups = {};
