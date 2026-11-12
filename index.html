@@ -296,7 +296,7 @@ footer a { color: inherit; }
   };
   // Brewer sign-in: the PIN is entered once per phone and kept; phones that aren't signed in see no editing buttons.
   const crew = () => !!store.get("gl-pin");
-  const BREWER_ONLY = /^(TREES\/NEW|TREE\/.+\/EDIT|BARRELS\/NEW|BLENDS\/NEW|BOTTLES\/REPRINT|PRINT\/.*|LABELS\/.*|BLEND\/[^/]+\/EDIT|[A-Z]\d{2,3}\/(EDIT|FILL|BOTTLE|EMPTY))$/;   // pages that change records
+  const BREWER_ONLY = /^(BARRELS\/NFC(\/.*)?|TREES\/NEW|TREE\/.+\/EDIT|BARRELS\/NEW|BLENDS\/NEW|BOTTLES\/REPRINT|PRINT\/.*|LABELS\/.*|BLEND\/[^/]+\/EDIT|[A-Z]\d{2,3}\/(EDIT|FILL|BOTTLE|EMPTY))$/;   // pages that change records
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -1056,21 +1056,32 @@ footer a { color: inherit; }
     return { save, show: t => { msg.textContent = t; msg.hidden = false; } };
   }
 
-  // "Write NFC tag": puts the barrel's link on a tag (NTAG213 etc.) with the phone's NFC. Never locks the tag.
+  // ----- Write NFC tag: its own page. Puts a barrel's link on a tag (NTAG213 etc.); never locks the tag. -----
   // Works in Chrome on Android (Web NFC); other browsers and PCs get a short explanation.
-  function nfcWriter(getId) {
-    const btn = el("button", "primary full", "Write NFC tag"); btn.type = "button";
+  function nfcPage(pre) {
+    const f = formCard("Write NFC tag", "barrels");
+    f.appendChild(el("p", "sub", "The tag will open the barrel's page when it's scanned. Use NTAG213 tags."));
+    const idIn = input(/^[BD]\d{2,3}$/.test(pre || "") ? pre : "", { autocomplete: "off", placeholder: "e.g. B21" });
+    idIn.style.textTransform = "uppercase";
+    suggest(idIn, "dl-barrel-ids", DB.order);
+    f.appendChild(field("Barrel number", idIn, "B for barrels, D for demijohns"));
+    const go = el("button", "primary full", "Write NFC tag");
     const st = el("div", "msg"); st.hidden = true;
     const say = (t, ok) => { st.textContent = t; st.className = "msg " + (ok ? "ok" : "err"); st.hidden = false; };
+    const cancel = el("a", "button soft full", "Cancel"); cancel.href = "#barrels";
+    // "No barrel exists" check, with Continue / Cancel (only put on the page when needed)
+    const ask = el("div", "confirm"), askT = el("p");
+    const yes = el("button", "primary", "Continue"), no = el("button", "soft", "Cancel");
+    yes.type = no.type = "button";
+    add(ask, askT, add(el("div", "btns"), yes, no));
+    add(f, go, st, cancel);
+
     let busy = null;
-    btn.addEventListener("click", async () => {
-      if (busy) { busy.abort(); return; }   // second tap while waiting = stop
-      const id = getId();
-      if (!/^[BD]\d{2,3}$/.test(id)) return say("Type the barrel number first, e.g. B21 or D03.");
+    async function write(id) {
       if (!("NDEFReader" in window)) return say("This browser can't write NFC tags. Use Chrome on an Android phone, or the tag writer program on the PC.");
       busy = new AbortController();
       const stop = setTimeout(() => busy && busy.abort(), 30000);
-      btn.textContent = "Hold the tag to the back of the phone… (tap to stop)";
+      go.textContent = "Hold the tag to the back of the phone… (tap to stop)";
       say("Waiting for a tag for " + id + "…", true);
       try {
         await new NDEFReader().write({ records: [{ recordType: "url", data: SITE + "#" + id }] }, { signal: busy.signal });
@@ -1081,10 +1092,26 @@ footer a { color: inherit; }
         else if (e && e.name === "NotSupportedError") say("NFC is off or this phone has no NFC. Turn NFC on in the phone's settings.");
         else say("Couldn't write the tag (" + ((e && e.message) || "error") + "). Hold it still and try again.");
       } finally {
-        clearTimeout(stop); busy = null; btn.textContent = "Write NFC tag";
+        clearTimeout(stop); busy = null; go.textContent = "Write NFC tag";
       }
+    }
+    f.addEventListener("submit", ev => {
+      ev.preventDefault();
+      if (busy) { busy.abort(); return; }   // second tap while waiting = stop
+      ask.remove(); cancel.hidden = false;
+      const id = idIn.value.trim().toUpperCase();
+      if (!/^[BD]\d{2,3}$/.test(id)) return say("Type the barrel number, e.g. B21 or D03.");
+      const b = DB.barrels[id];
+      if (!b || b.removed) {
+        st.hidden = true;
+        askT.textContent = "No barrel exists – " + id + " isn't in the Barrels list yet. Write the tag anyway?";
+        go.after(ask); cancel.hidden = true;   // one Cancel at a time
+        return;
+      }
+      write(id);
     });
-    return [btn, st];
+    yes.addEventListener("click", () => { ask.remove(); cancel.hidden = false; write(idIn.value.trim().toUpperCase()); });
+    no.addEventListener("click", () => { ask.remove(); cancel.hidden = false; });
   }
 
   // ----- add / edit a barrel -----
@@ -1110,7 +1137,11 @@ footer a { color: inherit; }
     add(f, add(el("div", "two"), field("Size (litres)", size), field("Type", type)), field("Where is it?", loc));
     const auth = pinFields(f);
     const { save, show } = formEnd(f, b ? "Save changes" : "Add barrel", "#barrels");
-    if (!b) f.querySelector("a.button.soft.full").before(...nfcWriter(() => idIn.value.trim().toUpperCase()));   // between Add barrel and Cancel
+    if (!b) {   // between Add barrel and Cancel: opens the Write NFC tag page
+      const nb = el("button", "primary full", "Write NFC tag"); nb.type = "button";
+      nb.addEventListener("click", () => { location.hash = "barrels/nfc/" + idIn.value.trim().toUpperCase(); });
+      f.querySelector("a.button.soft.full").before(nb);
+    }
     if (b) {
       // Delete: the row stays in the Sheet marked "Removed", so bottles from it keep their history.
       const del = el("button", "danger full", "Delete barrel");
@@ -2019,6 +2050,7 @@ footer a { color: inherit; }
     }
     else if (!raw || up === "BARRELS") barrelsTab();
     else if (up === "BARRELS/NEW") barrelForm(null);
+    else if ((m = /^BARRELS\/NFC\/?(.*)$/.exec(up))) nfcPage(m[1]);
     else if ((m = /^([A-Z]\d{2,3})(\/.*)?$/.exec(up)) && DB.barrels[m[1]] && DB.barrels[m[1]].removed) barrelsTab(m[1] + " has been deleted.");
     else if (up === "BLENDS") blendsTab();
     else if (up === "BLENDS/NEW") blendForm(null);
