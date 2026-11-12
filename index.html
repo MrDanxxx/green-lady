@@ -256,10 +256,9 @@ footer a { color: inherit; }
 </header>
 <nav class="tabs noprint" id="tabs" aria-label="Sections">
   <a href="#barrels" data-tab="barrels">Barrels</a>
-  <a href="#blends" data-tab="blends">Juice Blends</a>
+  <a href="#blends" data-tab="blends">Juice</a>
   <a href="#bottles" data-tab="bottles">Bottles</a>
   <a href="#league" data-tab="league">League</a>
-  <a href="#trees" data-tab="trees">Trees</a>
 </nav>
 
 <main id="main" aria-live="polite">
@@ -578,8 +577,17 @@ footer a { color: inherit; }
     }
   }
 
+  // Juice tab: two sub-tabs, Blends and Trees
+  function juiceSub(which) {
+    const sub = el("nav", "subtabs"); sub.style.gridTemplateColumns = "1fr 1fr";
+    [["blends", "Blends", "#blends"], ["trees", "Trees", "#trees"]].forEach(([k, t, h]) => {
+      const a = el("a", k === which ? "on" : null, t); a.href = h; sub.appendChild(a);
+    });
+    $main.appendChild(sub);
+  }
   function blendsTab() {
     page("Blends", "blends");
+    juiceSub("blends");
     $main.appendChild(tabHead("Juice Blends", null, crew() ? "+ New blend" : null, "#blends/new"));
     const ids = Object.keys(DB.blends).sort().reverse();
     if (!ids.length) { $main.appendChild(add(card(), el("p", "muted", "No blends yet. Tap “+ New blend”."))); return; }
@@ -1668,7 +1676,8 @@ footer a { color: inherit; }
   function treeList() { return Object.values(DB.trees).sort((a, b) => a.name.localeCompare(b.name)); }
 
   function treesTab() {
-    page("Trees", "trees");
+    page("Trees", "blends");   // Trees lives under the Juice tab
+    juiceSub("trees");
     const list = treeList();
     $main.appendChild(tabHead("Apple Trees", list.length ? list.length + (list.length === 1 ? " tree" : " trees") : null, crew() ? "+ Add tree" : null, "#trees/new"));
     if (!list.length) { $main.appendChild(add(card(), el("p", "muted", "No trees yet."))); return; }
@@ -1699,7 +1708,7 @@ footer a { color: inherit; }
   function esc(s) { return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch])); }
 
   function treePage(t) {
-    page(t.name, "trees");
+    page(t.name, "blends");
     const top = card(), head = el("div", "head"), h = el("div");
     add(h, el("h1", null, t.name), t.location ? el("div", "sub", t.location) : null);
     add(head, h, t.variety ? el("span", "pill tag", t.variety) : null);
@@ -1727,7 +1736,7 @@ footer a { color: inherit; }
   }
 
   function treeForm(t) {
-    const f = formCard(t ? "Edit " + t.name : "Add a tree", "trees");
+    const f = formCard(t ? "Edit " + t.name : "Add a tree", "blends");
     const all = treeList();
     const name = input(t ? t.name : "", { placeholder: "e.g. Big Bertha", autocomplete: "off" });
     const varieties = all.map(x => x.variety);
