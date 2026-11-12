@@ -76,6 +76,9 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 input[type=date] { position: relative; padding-right: 46px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232f5d3a' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3Ccircle cx='8' cy='15' r='1' fill='%232f5d3a'/%3E%3Ccircle cx='12' cy='15' r='1' fill='%232f5d3a'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 24px; cursor: pointer; }
 input[type=date]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; opacity: 0; cursor: pointer; }
 .sugg { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; max-height: 240px; overflow-y: auto; margin-top: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.15); }
+.who { text-align: center; padding: 8px 16px 28px; font-size: 13px; color: var(--muted); }
+.who a, .who button { color: var(--green); font: inherit; font-weight: 600; background: none; border: 0; padding: 4px; cursor: pointer; text-decoration: underline; }
+.bt-row.view { grid-template-columns: 1fr 1.1fr 1.5fr; }
 .sugg.inline { position: static; box-shadow: none; margin-top: 6px; max-height: 55vh; }
 .sugg .pick { padding: 9px 12px; font-size: 15px; }
 .sugg .pick.on { padding: 8px 11px; }
@@ -127,7 +130,7 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .btable { display: grid; }
 .bt-row { position: relative; display: grid; grid-template-columns: 1fr 1.1fr 1.5fr 44px; align-items: center; gap: 8px; padding: 11px 0; border-top: 1px solid var(--line); }
 .bt-head { padding: 0 0 8px; border-top: 0; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); font-weight: 800; }
-.bt-head > :last-child, .bt-edit { justify-self: center; text-align: center; }
+.bt-head:not(.view) > :last-child, .bt-edit { justify-self: center; text-align: center; }
 .bt-open { position: absolute; inset: 0; }   /* tap anywhere on the row to open the barrel */
 .bt-name { font-weight: 700; }
 .bt-date { font-size: 14px; color: var(--muted); }
@@ -248,6 +251,7 @@ footer a { color: inherit; }
 <main id="main" aria-live="polite">
   <section class="card"><div class="empty">Loading…</div></section>
 </main>
+<div class="who noprint" id="who"></div>
 
 
 <script>
@@ -276,6 +280,9 @@ footer a { color: inherit; }
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
     del(k) { try { localStorage.removeItem(k); } catch (e) {} },
   };
+  // Brewer sign-in: the PIN is entered once per phone and kept; phones that aren't signed in see no editing buttons.
+  const crew = () => !!store.get("gl-pin");
+  const BREWER_ONLY = /^(BARRELS\/NEW|BLENDS\/NEW|BOTTLES\/REPRINT|PRINT\/.*|LABELS\/.*|BLEND\/[^/]+\/EDIT|[A-Z]\d{2,3}\/(EDIT|FILL|BOTTLE|EMPTY))$/;   // pages that change records
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -514,7 +521,7 @@ footer a { color: inherit; }
     page("Barrels", "barrels");
     if (message) $main.appendChild(el("div", "msg err gap", message));
     const inUse = DB.order.filter(id => DB.barrels[id].current).length;
-    const top = tabHead("Barrels", DB.order.length + " in total · " + inUse + " in use · " + (DB.order.length - inUse) + " empty", "+ Add barrel", "#barrels/new");
+    const top = tabHead("Barrels", DB.order.length + " in total · " + inUse + " in use · " + (DB.order.length - inUse) + " empty", crew() ? "+ Add barrel" : null, "#barrels/new");
     $main.appendChild(top);
 
     const groups = {};
@@ -522,12 +529,12 @@ footer a { color: inherit; }
     Object.keys(groups).forEach(loc => {
       // a table per location: Barrel | Juice Blend | Fill Date | Edit (tick box)
       const c = card("Location: " + loc), list = el("div", "btable");
-      const hd = el("div", "bt-row bt-head");
-      ["Barrel", "Juice Blend", "Fill Date", "Edit"].forEach(t => hd.appendChild(el("div", null, t)));
+      const hd = el("div", "bt-row bt-head" + (crew() ? "" : " view"));
+      ["Barrel", "Juice Blend", "Fill Date"].concat(crew() ? ["Edit"] : []).forEach(t => hd.appendChild(el("div", null, t)));
       list.appendChild(hd);
       groups[loc].sort((x, y) => (x.current ? 0 : 1) - (y.current ? 0 : 1));   // full first, empty at the bottom
       groups[loc].forEach(b => {
-        const row = el("div", "bt-row");
+        const row = el("div", "bt-row" + (crew() ? "" : " view"));
         const open = el("a", "bt-open"); open.href = "#" + b.id; open.setAttribute("aria-label", "Open " + vesselName(b));
         const name = el("div", "bt-name", b.id);
         const blend = el("div"), date = el("div", "bt-date");
@@ -536,21 +543,23 @@ footer a { color: inherit; }
         const tick = el("input", "bt-tick"); tick.type = "checkbox"; tick.setAttribute("aria-label", "Edit " + vesselName(b));
         tick.addEventListener("change", () => { if (tick.checked) location.hash = b.id + "/edit"; });
         const tc = el("div", "bt-edit"); tc.appendChild(tick);
-        add(row, open, name, blend, date, tc);
+        add(row, open, name, blend, date, crew() ? tc : null);
         list.appendChild(row);
       });
       $main.appendChild(add(c, list));
     });
-    if (!DB.order.length) $main.appendChild(add(card(), el("p", "muted", "No barrels yet. Tap “+ Add barrel”.")));
+    if (!DB.order.length) $main.appendChild(add(card(), el("p", "muted", "No barrels yet.")));
 
-    const c3 = card("Stickers"), l2 = el("a", "button full", "Print barrel QR stickers");
-    l2.href = "#labels/barrels";
-    $main.appendChild(add(c3, l2));
+    if (crew()) {
+      const c3 = card("Stickers"), l2 = el("a", "button full", "Print barrel QR stickers");
+      l2.href = "#labels/barrels";
+      $main.appendChild(add(c3, l2));
+    }
   }
 
   function blendsTab() {
     page("Blends", "blends");
-    $main.appendChild(tabHead("Juice Blends", null, "+ New blend", "#blends/new"));
+    $main.appendChild(tabHead("Juice Blends", null, crew() ? "+ New blend" : null, "#blends/new"));
     const ids = Object.keys(DB.blends).sort().reverse();
     if (!ids.length) { $main.appendChild(add(card(), el("p", "muted", "No blends yet. Tap “+ New blend”."))); return; }
     const byV = {};
@@ -580,7 +589,7 @@ footer a { color: inherit; }
     [["look", "Rate your bottle", "#bottles"], ["reprint", "Reprint bottle labels", "#bottles/reprint"]].forEach(([k, t, h]) => {
       const a = el("a", k === (which || "look") ? "on" : null, t); a.href = h; sub.appendChild(a);
     });
-    $main.appendChild(sub);
+    if (crew()) $main.appendChild(sub);   // Reprint is brewer-only, so others just see Rate your bottle
     if (which === "reprint") return reprintCard();
     $main.appendChild(bottleFinder());
 
@@ -689,24 +698,21 @@ footer a { color: inherit; }
       const items = done.map(r => ({ value: r.key, main: "Blend " + r.blend + " · " + (DB.barrels[r.barrel] ? vesselName(DB.barrels[r.barrel]) : r.barrel),
         sub: "Bottled " + fmtDate(r.bottled) + (r.bottles ? " · " + r.bottles + " bottles" : "") }));
       const sel = pickBox("Choose a batch…", items, () => { rmsg.hidden = true; });
-      // needs the PIN number (checked with the Sheet) - the whole batch is reprinted
-      const pin = input(store.get("gl-pin") || "", { type: "password", inputMode: "numeric" });
+      // the whole batch is reprinted; the phone's saved PIN is checked with the Sheet
       const go = el("button", "primary full", "Reprint labels");
       const rmsg = el("div", "msg err"); rmsg.hidden = true;
       const bl0 = el("div", "lbl"); add(bl0, el("div", "lbl-t", "Which batch?"), sel);
-      add(rf, bl0, field("PIN NUMBER", pin), go, rmsg);
+      add(rf, bl0, go, rmsg);
       rf.addEventListener("submit", async ev => {
         ev.preventDefault();
         const show = t => { rmsg.textContent = t; rmsg.hidden = false; };
         if (!sel.value) return show("Choose which batch to reprint.");
-        if (!pin.value.trim()) return show("Enter the PIN number.");
         go.disabled = true; go.textContent = "Checking…";
         let r;
-        try { r = await post({ kind: "pin", pin: pin.value.trim() }); } catch (e) { r = null; }
+        try { r = await post({ kind: "pin", pin: store.get("gl-pin") || "" }); } catch (e) { r = null; }
         go.disabled = false; go.textContent = "Reprint labels";
         if (!r) return show("No connection. Try again.");
-        if (!r.ok) { store.del("gl-pin"); return show("Wrong PIN number."); }
-        store.set("gl-pin", pin.value.trim());
+        if (!r.ok) { store.del("gl-pin"); return show(SIGNED_OUT); }
         location.hash = "print/" + sel.value;
       });
       $main.appendChild(add(c2, rf));
@@ -736,7 +742,7 @@ footer a { color: inherit; }
       // Barrel number · blend (centred between) · Edit fill details (top right)
       const head = el("div", "bhead"), ef = el("a", "button primary small", "Edit fill details");
       ef.href = "#" + b.id + "/fill";
-      add(head, el("h1", null, vesselName(b)), el("span", "pill", "Blend " + cur.blend), ef, subLine);
+      add(head, el("h1", null, vesselName(b)), el("span", "pill", "Blend " + cur.blend), crew() ? ef : null, subLine);
       top.appendChild(head);
     } else {
       const head = el("div", "head"), h = el("div");
@@ -760,9 +766,9 @@ footer a { color: inherit; }
     if (cur) {
       add($main, applesCard(blend), yeastCard(cur.yeasts, blend && blend.yeast));
     }
-    $main.appendChild(actionCard(b));
+    add($main, actionCard(b));
     if (b.notes) $main.appendChild(add(card("Barrel notes"), el("p", "notes", b.notes)));
-    if (cur) $main.appendChild(finishCard(b));
+    if (cur && crew()) $main.appendChild(finishCard(b));
   }
 
   // ----- barrel actions -----
@@ -781,6 +787,7 @@ footer a { color: inherit; }
   // Full barrel: the Notes card (+ Note); Bottle it / Empty it sit in their own card at the bottom (finishCard).
   function actionCard(b) {
     if (!b.current) {
+      if (!crew()) return null;
       const fb = el("a", "button primary full", LABEL.Fill);   // same page as Edit fill details
       fb.href = "#" + b.id + "/fill";
       return add(card(), fb);
@@ -789,7 +796,7 @@ footer a { color: inherit; }
     // Full barrel: the Notes card, with a + Note button that opens the note box.
     const c = card(), nb = el("button", "primary small", "+ Note"), noteSlot = el("div");
     nb.type = "button";
-    c.appendChild(add(el("div", "cardhead"), el("h2", null, "Notes"), nb));
+    c.appendChild(add(el("div", "cardhead"), el("h2", null, "Notes"), crew() ? nb : null));
     c.appendChild(notesTable(b.current.events) || el("p", "muted", "No notes yet."));
     nb.addEventListener("click", () => {
       nb.hidden = true;
@@ -957,18 +964,15 @@ footer a { color: inherit; }
   }
   const pad2 = n => String(n).padStart(2, "0");
   function isoToday() { const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
-  function pinFields(f) {
-    const by = input(store.get("gl-name") || "", { autocomplete: "given-name" });
-    suggest(by, "dl-names", DB.used.names);
-    const pin = input(store.get("gl-pin") || "", { type: "password", inputMode: "numeric" });
-    add(f, add(el("div", "two"), field("Your name", by), field("PIN NUMBER", pin)));
-    return { by, pin };
+  const SIGNED_OUT = "This phone is no longer signed in (the PIN may have changed). Tap “Brewer sign-in” at the bottom of the page.";
+  function pinFields(f) {   // no boxes any more: the name and PIN saved when this phone signed in
+    return { by: { value: store.get("gl-name") || "" }, pin: { value: store.get("gl-pin") || "" } };
   }
   // Sends a PIN-protected change. Returns true once saved and the records are reloaded.
   async function pinPost(body, auth, btn, show) {
     body.pin = auth.pin.value.trim();
     body.by = auth.by.value.trim();
-    if (!body.pin) { show("Enter the PIN number."); return false; }
+    if (!body.pin) { show(SIGNED_OUT); return false; }
     const txt = btn.textContent;
     btn.disabled = true; btn.textContent = "Saving…";
     let r;
@@ -977,13 +981,45 @@ footer a { color: inherit; }
     if (!r.ok) {
       if (/pin/i.test(r.error || "")) store.del("gl-pin");
       btn.disabled = false; btn.textContent = txt;
-      show(/pin/i.test(r.error || "") ? "Wrong PIN number." : (r.error || "Couldn't save."));
+      show(/pin/i.test(r.error || "") ? SIGNED_OUT : (r.error || "Couldn't save."));
       return false;
     }
-    store.set("gl-pin", body.pin);
-    if (body.by) store.set("gl-name", body.by);
     try { await load(); } catch (e) { btn.textContent = "Saved"; show("Saved, but couldn't refresh. Reload the page to see it."); return false; }
     return true;
+  }
+  // Brewer sign-in: name + PIN once on this phone.
+  function signInPage(back) {
+    const f = formCard("Brewer sign-in", null);
+    document.getElementById("who").replaceChildren();   // no sign-in link under the sign-in form
+    f.appendChild(el("p", "sub", "Only needed once on this phone. After that you can fill, bottle and edit without the PIN, and friends who use the site on their own phones just see the records."));
+    const by = input(store.get("gl-name") || "", { autocomplete: "given-name", placeholder: "e.g. Dan" });
+    suggest(by, "dl-names", DB.used.names);
+    const pin = input("", { type: "password", inputMode: "numeric" });
+    add(f, field("Your name", by), field("PIN NUMBER", pin));
+    const { save, show } = formEnd(f, "Sign in", "#" + (back && !BREWER_ONLY.test(back.toUpperCase()) ? back : "barrels"));
+    f.addEventListener("submit", async ev => {
+      ev.preventDefault();
+      if (!pin.value.trim()) return show("Enter the PIN number.");
+      save.disabled = true; save.textContent = "Checking…";
+      let r; try { r = await post({ kind: "pin", pin: pin.value.trim() }); } catch (e) { r = null; }
+      save.disabled = false; save.textContent = "Sign in";
+      if (!r) return show("No connection. Try again.");
+      if (!r.ok) return show("Wrong PIN number.");
+      store.set("gl-pin", pin.value.trim());
+      if (by.value.trim()) store.set("gl-name", by.value.trim());
+      FLASH = { text: "Signed in. This phone can now make changes." };
+      const to = back || "barrels";
+      if (decodeURIComponent(location.hash.slice(1)) === to) route(); else location.hash = to;
+    });
+  }
+  function whoLine(raw) {
+    const w = document.getElementById("who");
+    if (crew()) {
+      const out = el("button", null, "Sign out"); out.type = "button";
+      out.addEventListener("click", () => { store.del("gl-pin"); FLASH = { text: "Signed out. This phone can't make changes now." }; route(); });
+      w.replaceChildren(document.createTextNode("Signed in" + (store.get("gl-name") ? " as " + store.get("gl-name") : "") + " · "), out);
+    } else if (/^signin/i.test(raw)) w.replaceChildren();
+    else { const a = el("a", null, "Brewer sign-in"); a.href = "#signin/" + raw; w.replaceChildren(a); }
   }
   function formCard(title, tab) {
     page(title, tab);
@@ -1340,26 +1376,23 @@ footer a { color: inherit; }
       // Censor: PIN, then the review and its rating are taken out of every score (the bottle's record stays)
       const cz = el("button", "danger small", "Censor this review"); cz.type = "button"; cz.style.marginTop = "8px";
       box.appendChild(cz);
-      if (!x.row) cz.hidden = true;
+      if (!x.row || !crew()) cz.hidden = true;
       cz.addEventListener("click", () => {
         cz.hidden = true;
         const ask = el("div", "confirm");
-        const pin = input(store.get("gl-pin") || "", { type: "password", inputMode: "numeric" });
         const yes = el("button", "danger-solid", "Yes, censor it"), no = el("button", "soft", "No");
         yes.type = no.type = "button";
         const em = el("div", "msg err"); em.hidden = true;
-        add(ask, el("p", null, "Censor this review – are you sure?"), field("PIN NUMBER", pin), add(el("div", "btns"), yes, no), em);
+        add(ask, el("p", null, "Censor this review – are you sure?"), add(el("div", "btns"), yes, no), em);
         box.appendChild(ask);
         no.addEventListener("click", () => { ask.remove(); cz.hidden = false; });
         yes.addEventListener("click", async () => {
           const show = t => { em.textContent = t; em.hidden = false; };
-          if (!pin.value.trim()) return show("Enter the PIN number.");
           yes.disabled = true; yes.textContent = "Censoring…";
-          let k; try { k = await post({ kind: "removeRating", pin: pin.value.trim(), bottle: code, row: x.row }); } catch (er) { k = null; }
+          let k; try { k = await post({ kind: "removeRating", pin: store.get("gl-pin") || "", bottle: code, row: x.row }); } catch (er) { k = null; }
           yes.disabled = false; yes.textContent = "Yes, censor it";
           if (!k) return show("No connection. Try again.");
-          if (!k.ok) { if (/pin/i.test(k.error || "")) { store.del("gl-pin"); return show("Wrong PIN number."); } return show(k.error || "Couldn't censor it."); }
-          store.set("gl-pin", pin.value.trim());
+          if (!k.ok) { if (/pin/i.test(k.error || "")) { store.del("gl-pin"); return show(SIGNED_OUT); } return show(k.error || "Couldn't censor it."); }
           FLASH = { text: "Review censored. Scores have been updated." };
           try { await load(); } catch (er) {}
           route();
@@ -1521,9 +1554,11 @@ footer a { color: inherit; }
     });
     if (!list.children.length) list.appendChild(el("div", "muted", "Not in any barrel yet."));
     $main.appendChild(add(c, list));
-    const ce = card(), ed = el("a", "button primary full", "Edit this blend");
-    ed.href = "#blend/" + id + "/edit";
-    $main.appendChild(add(ce, ed));
+    if (crew()) {
+      const ce = card(), ed = el("a", "button primary full", "Edit this blend");
+      ed.href = "#blend/" + id + "/edit";
+      $main.appendChild(add(ce, ed));
+    }
   }
 
   // ----- league table -----
@@ -1748,7 +1783,11 @@ footer a { color: inherit; }
     const up = raw.toUpperCase();
     document.body.classList.toggle("slim", !(!raw || up === "BARRELS"));   // full header only on the Barrels list
     let m;
-    if (!raw || up === "BARRELS") barrelsTab();
+    const brewerOnly = BREWER_ONLY.test(up);
+    whoLine(raw);
+    if (/^SIGNIN(\/|$)/.test(up)) signInPage(raw.replace(/^signin\/?/i, ""));
+    else if (brewerOnly && !crew()) signInPage(raw);
+    else if (!raw || up === "BARRELS") barrelsTab();
     else if (up === "BARRELS/NEW") barrelForm(null);
     else if ((m = /^([A-Z]\d{2,3})(\/.*)?$/.exec(up)) && DB.barrels[m[1]] && DB.barrels[m[1]].removed) barrelsTab(m[1] + " has been deleted.");
     else if (up === "BLENDS") blendsTab();
