@@ -1114,7 +1114,7 @@ footer a { color: inherit; }
     if (run && (run.priming || run.note)) $main.appendChild(add(card("Bottling"), el("p", "notes", [run.priming ? "Priming: " + run.priming : "", run.note].filter(Boolean).join("\n"))));
   }
 
-  function rateCard(p) {
+  function rateCard(p, changing) {
     const c = card("How was it?");
     // Ratings are per bottle: on a batch page (no bottle number) ask for the number on the label first.
     if (!p.n) {
@@ -1136,14 +1136,19 @@ footer a { color: inherit; }
     const key = "gl-rated-" + p.code;
     const prev = store.get(key);
     const agg = DB.ratings[p.run];
-    if (prev) {
+    if (prev && !changing) {
       c.appendChild(el("p", null, "Thanks – you rated this bottle " + (RATE.find(r => r[0] === prev) || ["", "", prev])[1] + " " + prev + "."));
       c.appendChild(el("h3", null, "What everyone thought of this batch"));
       c.appendChild(ratingBar(agg));
       const again = el("button", null, "Change my rating"); again.type = "button"; again.style.marginTop = "12px";
-      again.addEventListener("click", () => { store.del(key); c.replaceWith(rateCard(p)); });
+      again.addEventListener("click", () => { c.replaceWith(rateCard(p, true)); });   // old rating kept until a new one is sent
       c.appendChild(again);
       return c;
+    }
+    if (changing) {   // changed your mind about changing: keep the rating you gave
+      const back = el("button", "soft small", "‹ Back – keep my rating"); back.type = "button"; back.style.marginBottom = "12px";
+      back.addEventListener("click", () => { c.replaceWith(rateCard(p)); });
+      c.insertBefore(back, c.firstChild);
     }
     let choice = null;
     const tags = new Set();
