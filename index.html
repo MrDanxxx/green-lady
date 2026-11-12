@@ -63,6 +63,8 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .dd-ph { color: var(--muted); opacity: .6; font-style: italic; }
 .dd-arrow { flex: none; color: var(--muted); font-size: 14px; }
 .dd-menu { display: grid; gap: 6px; margin-top: 6px; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.dd-grid { grid-template-columns: repeat(6, 1fr); }
+.dd-grid .pick { justify-items: center; text-align: center; padding: 10px 0; }
 .pick { display: grid; gap: 2px; text-align: left; padding: 10px 12px; background: var(--input); border: 1px solid var(--line); border-radius: 10px; font-weight: 400; }
 .pick-id { font-weight: 700; font-size: 15px; }
 .pick-sub { font-size: 13px; color: var(--muted); line-height: 1.35; }
@@ -540,26 +542,74 @@ footer a { color: inherit; }
     });
     $main.appendChild(sub);
     if (which === "reprint") return reprintCard();
-    const c1 = card("Find my bottle");
-    c1.appendChild(el("p", "sub", "Type the serial number from the label (e.g. 26A-B07-31)."));
-    const f = el("form", "codebox"), inp = el("input");
-    inp.placeholder = "e.g. 26A-B07-31"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Serial number");
-    f.style.marginTop = "0";
-    add(f, inp, el("button", "primary", "Go"));
-    const fmsg = el("div", "msg err"); fmsg.hidden = true; fmsg.style.marginTop = "10px";
-    f.addEventListener("submit", ev => {
-      ev.preventDefault();
-      const v = inp.value.trim().toUpperCase(), p = parseCode(v);
-      if (p) {
-        const bad = bottleProblem(p);
-        if (bad) { fmsg.textContent = bad; fmsg.hidden = false; return; }
-        location.hash = p.code;
-      }
-      else if (DB.barrels[v]) location.hash = v;
-      else { fmsg.textContent = "That serial number isn't recognised. It looks like 26A-B07-31."; fmsg.hidden = false; }
-    });
-    $main.appendChild(add(c1, f, fmsg));
+    $main.appendChild(bottleFinder());
 
+  }
+
+  // A drop-down drawn by the page (phone drop-down text is too big). items: [{value, main, sub}]
+  function pickBox(placeholder, items, onPick, grid) {
+    const box = el("div", "dd"), btn = el("button", "dd-btn"), menu = el("div", grid ? "dd-menu dd-grid" : "dd-menu");
+    btn.type = "button"; menu.hidden = true; box.value = "";
+    const show = () => {
+      const it = items.find(x => x.value === box.value), txt = el("span", "dd-txt");
+      if (it) add(txt, el("span", "pick-id", it.main), it.sub ? el("span", "pick-sub", it.sub) : null);
+      else txt.appendChild(el("span", "dd-ph", placeholder));
+      btn.replaceChildren(txt, el("span", "dd-arrow", menu.hidden ? "▾" : "▴"));
+    };
+    const choose = v => {
+      box.value = v; menu.hidden = true;
+      menu.querySelectorAll(".pick").forEach(x => x.classList.toggle("on", x.dataset.v === v));
+      show(); onPick(v);
+    };
+    items.forEach(it => {
+      const o = el("button", "pick"); o.type = "button"; o.dataset.v = it.value;
+      add(o, el("span", "pick-id", it.main), it.sub ? el("span", "pick-sub", it.sub) : null);
+      o.addEventListener("click", () => choose(it.value));
+      menu.appendChild(o);
+    });
+    btn.addEventListener("click", () => { menu.hidden = !menu.hidden; show(); });
+    show();
+    add(box, btn, menu);
+    box.choose = choose;
+    return box;
+  }
+
+  // Find my bottle: Vintage › Juice blend › Barrel › Bottle, built only from batches that have been bottled.
+  function bottleFinder() {
+    const c = card("Find my bottle");
+    const runs = Object.values(DB.runs).filter(r => r.bottled && DB.blends[r.blend] && DB.barrels[r.barrel]);
+    if (!runs.length) { c.appendChild(el("p", "muted", "Nothing bottled yet.")); return c; }
+    const slots = [el("div"), el("div"), el("div"), el("div")];
+    slots.forEach(x => c.appendChild(x));
+    const step = (i, label, box) => {
+      slots.slice(i).forEach(x => x.replaceChildren());
+      const l = el("div", "lbl"); l.style.marginTop = i ? "12px" : "0";
+      add(l, el("div", "lbl-t", label), box);
+      slots[i].appendChild(l);
+      if (box.items === 1) box.choose(box.only);   // only one choice: pick it straight away
+    };
+    const auto = (box, items) => { box.items = items.length; box.only = items.length ? items[0].value : ""; return box; };
+    const vintages = [...new Set(runs.map(r => DB.blends[r.blend].vintage))].sort((a, b) => (b || 0) - (a || 0));
+    const vItems = vintages.map(v => ({ value: String(v), main: vlabel(v) }));
+    const pickVintage = v => {
+      const ids = [...new Set(runs.filter(r => String(DB.blends[r.blend].vintage) === v).map(r => r.blend))].sort();
+      const items = ids.map(id => ({ value: id, main: "Blend " + blendLetter(id), sub: DB.blends[id].apples.map(x => x.variety).join(", ") }));
+      step(1, "Juice blend", auto(pickBox("Choose a blend…", items, pickBlend), items));
+    };
+    const pickBlend = id => {
+      const items = runs.filter(r => r.blend === id).sort((a, b) => a.barrel.localeCompare(b.barrel)).map(r => ({
+        value: r.key, main: vesselName(DB.barrels[r.barrel]),
+        sub: "Bottled " + fmtDate(r.bottled) + (r.bottles ? " · " + r.bottles + " bottles" : "") }));
+      step(2, "Barrel", auto(pickBox("Choose a barrel…", items, pickBarrel), items));
+    };
+    const pickBarrel = key => {
+      const r = DB.runs[key];
+      if (!r.bottles) { slots[3].replaceChildren(); location.hash = r.key; return; }   // count unknown: the batch page asks for the number
+      const items = Array.from({ length: Math.min(Number(r.bottles) || 0, 99) }, (_, i) => { const n = String(i + 1).padStart(2, "0"); return { value: n, main: n }; });
+      step(3, "Bottle", pickBox("Choose the number on your label…", items, n => { location.hash = r.key + "-" + n; }, true));
+    };
+    step(0, "Vintage", auto(pickBox("Choose a vintage…", vItems, pickVintage), vItems));
+    return c;
   }
 
   // Reprint labels for a batch that's already been bottled (e.g. the printer jammed).
