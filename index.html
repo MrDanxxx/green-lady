@@ -964,7 +964,7 @@ footer a { color: inherit; }
   }
   const pad2 = n => String(n).padStart(2, "0");
   function isoToday() { const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
-  const SIGNED_OUT = "This phone is no longer signed in (the PIN may have changed). Tap “Brewer sign-in” at the bottom of the page.";
+  const SIGNED_OUT = "You’re no longer signed in (the PIN may have changed). Tap “Brewer sign-in” at the bottom of the page.";
   function pinFields(f) {   // no boxes any more: the name and PIN saved when this phone signed in
     return { by: { value: store.get("gl-name") || "" }, pin: { value: store.get("gl-pin") || "" } };
   }
@@ -991,7 +991,7 @@ footer a { color: inherit; }
   function signInPage(back) {
     const f = formCard("Brewer sign-in", null);
     document.getElementById("who").replaceChildren();   // no sign-in link under the sign-in form
-    f.appendChild(el("p", "sub", "Only needed once on this phone. After that you can fill, bottle and edit without the PIN, and friends who use the site on their own phones just see the records."));
+    f.appendChild(el("p", "sub", "Only needed once on each device. After that you can fill, bottle and edit without the PIN. Anyone who isn’t signed in just sees the records."));
     const by = input(store.get("gl-name") || "", { autocomplete: "given-name", placeholder: "e.g. Dan" });
     suggest(by, "dl-names", DB.used.names);
     const pin = input("", { type: "password", inputMode: "numeric" });
@@ -1007,7 +1007,7 @@ footer a { color: inherit; }
       if (!r.ok) return show("Wrong PIN number.");
       store.set("gl-pin", pin.value.trim());
       if (by.value.trim()) store.set("gl-name", by.value.trim());
-      FLASH = { text: "Signed in. This phone can now make changes." };
+      FLASH = { text: "Signed in. You can now make changes." };
       const to = back || "barrels";
       if (decodeURIComponent(location.hash.slice(1)) === to) route(); else location.hash = to;
     });
@@ -1016,7 +1016,7 @@ footer a { color: inherit; }
     const w = document.getElementById("who");
     if (crew()) {
       const out = el("button", null, "Sign out"); out.type = "button";
-      out.addEventListener("click", () => { store.del("gl-pin"); FLASH = { text: "Signed out. This phone can't make changes now." }; route(); });
+      out.addEventListener("click", () => { store.del("gl-pin"); FLASH = { text: "Signed out. Sign in again to make changes." }; route(); });
       w.replaceChildren(document.createTextNode("Signed in" + (store.get("gl-name") ? " as " + store.get("gl-name") : "") + " · "), out);
     } else if (/^signin/i.test(raw)) w.replaceChildren();
     else { const a = el("a", null, "Brewer sign-in"); a.href = "#signin/" + raw; w.replaceChildren(a); }
