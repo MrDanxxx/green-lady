@@ -1447,7 +1447,7 @@ footer a { color: inherit; }
     $main.appendChild(cn);
 
     // the bottling (bottle details only, not barrel details)
-    if (kind === "barrel") { add($main, ageCard(x => x.run === p.run)); return; }
+    if (kind === "barrel") return;   // no bottling or age box on barrel details
     const ct = card("The bottling"), gt = el("div", "stats");
     gt.style.marginTop = "0";
     if (run && run.bottled) stat(gt, "Bottled", fmtDate(run.bottled), ago(run.bottled), true);
