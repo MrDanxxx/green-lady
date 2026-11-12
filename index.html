@@ -14,7 +14,7 @@
   Green Lady cider - barrel and bottle pages.
   Data lives in the owner's Google Sheet, served by a Google Apps Script web app (see apps-script/Code.gs).
   Links:
-    #barrels  #blends  #bottles   the three tabs   (#barrels/new, #blends/new, #B07/edit, #blend/26A/edit = crew forms)
+    #barrels  #blends  #bottles   the three tabs   (#barrels/new, #blends/new, #B07/edit, #blend/26A/edit = edit forms)
     #B07            barrel page (NFC tag / QR on the barrel)
     #26A-B07-031    bottle page + rating (QR label on the bottle; the -031 bottle number is optional)
     #league         league table of bottling runs
@@ -560,7 +560,7 @@ footer a { color: inherit; }
       if (blend && blend.notes) $main.appendChild(add(card("Blend notes"), el("p", "notes", blend.notes)));
       add($main, readingsCard(cur.events, "Readings & notes"));
     }
-    $main.appendChild(crewCard(b));
+    $main.appendChild(actionCard(b));
 
     const past = b.history.slice().reverse();
     if (past.length) {
@@ -581,7 +581,7 @@ footer a { color: inherit; }
     if (b.notes) $main.appendChild(add(card("Barrel notes"), el("p", "notes", b.notes)));
   }
 
-  // ----- crew input -----
+  // ----- barrel actions -----
   const FIELDS = {
     Fill:    [["blend", "Which blend?", "blend"], ["yeast", "Yeast", "yeast"], ["note", "Note", "text"]],
     Reading: [["gravity", "Gravity", "gravity"], ["ph", "pH", "ph"], ["note", "Note", "text"]],
@@ -595,27 +595,27 @@ footer a { color: inherit; }
 
   // Full barrel: just a notes box, with the other actions tucked under "More".
   // Empty barrel: Fill (location changes via Edit barrel details).
-  function crewCard(b) {
+  function actionCard(b) {
     const btns = el("div", "btns"), slot = el("div");
     const actions = b.current ? ["Reading", "Yeast", "Bottled", "Empty"] : ["Fill"];
     actions.forEach((a, i) => {
       const bt = el("button", !b.current && i === 0 ? "primary" : null, LABEL[a]);
       bt.type = "button";
-      bt.addEventListener("click", () => { slot.replaceChildren(crewForm(b, a)); });
+      bt.addEventListener("click", () => { slot.replaceChildren(actionForm(b, a)); });
       btns.appendChild(bt);
     });
     const ed = el("a", "button full", "Edit barrel details");
     ed.href = "#" + b.id + "/edit"; ed.style.marginTop = "10px";
-    if (!b.current) { btns.style.gridTemplateColumns = "1fr"; return add(card("Crew"), btns, ed, slot); }
+    if (!b.current) { btns.style.gridTemplateColumns = "1fr"; return add(card(), btns, ed, slot); }
 
     const c = card("Add a note");
-    const f = crewForm(b, "Note", true);
+    const f = actionForm(b, "Note", true);
     const more = el("details", "more"), sum = el("summary", null, "More: reading, yeast, bottled, emptied");
     add(more, sum, btns, ed, slot);
     return add(c, f, more);
   }
 
-  function crewForm(b, action, bare) {
+  function actionForm(b, action, bare) {
     const f = el("form"), inputs = {};
     if (bare) f.style.marginTop = "0";
     else f.appendChild(el("h3", null, LABEL[action] + " · " + b.id));
@@ -662,7 +662,7 @@ footer a { color: inherit; }
       inputs.blend.addEventListener("change", fillYeast);
       fillYeast();
     }
-    const auth = crewFields(f);
+    const auth = pinFields(f);
     const msg = el("div", "msg"); msg.hidden = true;
     const save = el("button", "primary full", bare ? "Save note" : "Save");
     if (bare && inputs.note) { inputs.note.placeholder = "e.g. Bubbling well, smells sweet"; inputs.note.parentNode.firstChild.remove(); inputs.note.setAttribute("aria-label", "Note"); }
@@ -682,7 +682,7 @@ footer a { color: inherit; }
       }
       if (action === "Reading" && !body.gravity && !body.ph && !body.note) return show("Enter a gravity, pH or note.");
       if (action === "Moved" && !body.location) return show("Where has it gone?");
-      if (!await crewPost(body, auth, save, show)) return;
+      if (!await pinPost(body, auth, save, show)) return;
       FLASH = { text: "Saved: " + LABEL[action].replace("+ ", "") + " for " + b.id + "." };
       if (action === "Bottled") FLASH.link = { text: "Print " + (body.bottles || "") + " bottle labels", href: "#labels/" + body.blend + "-" + b.id + "/" + (parseInt(body.bottles, 10) || 24) };
       route();
@@ -691,7 +691,7 @@ footer a { color: inherit; }
     return f;
   }
 
-  // ----- crew forms: shared bits -----
+  // ----- forms: shared bits -----
   function field(label, inp, hint) {
     const l = el("label");
     l.appendChild(document.createTextNode(label));
@@ -729,17 +729,17 @@ footer a { color: inherit; }
   }
   const pad2 = n => String(n).padStart(2, "0");
   function isoToday() { const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
-  function crewFields(f) {
+  function pinFields(f) {
     const by = input(store.get("gl-name") || "", { autocomplete: "given-name" });
     const pin = input(store.get("gl-pin") || "", { type: "password", inputMode: "numeric" });
-    add(f, add(el("div", "two"), field("Your name", by), field("Crew PIN", pin)));
+    add(f, add(el("div", "two"), field("Your name", by), field("PIN NUMBER", pin)));
     return { by, pin };
   }
-  // Sends a crew change. Returns true once saved and the records are reloaded.
-  async function crewPost(body, auth, btn, show) {
+  // Sends a PIN-protected change. Returns true once saved and the records are reloaded.
+  async function pinPost(body, auth, btn, show) {
     body.pin = auth.pin.value.trim();
     body.by = auth.by.value.trim();
-    if (!body.pin) { show("Enter the crew PIN."); return false; }
+    if (!body.pin) { show("Enter the PIN number."); return false; }
     const txt = btn.textContent;
     btn.disabled = true; btn.textContent = "Saving…";
     let r;
@@ -748,7 +748,7 @@ footer a { color: inherit; }
     if (!r.ok) {
       if (/pin/i.test(r.error || "")) store.del("gl-pin");
       btn.disabled = false; btn.textContent = txt;
-      show(r.error || "Couldn't save.");
+      show(/pin/i.test(r.error || "") ? "Wrong PIN number." : (r.error || "Couldn't save."));
       return false;
     }
     store.set("gl-pin", body.pin);
@@ -793,7 +793,7 @@ footer a { color: inherit; }
     suggest(loc, "dl-locs", knownLocations());
     const notes = el("textarea"); notes.value = b ? b.notes : "";
     add(f, add(el("div", "two"), field("Size (litres)", size), field("Type", type)), field("Where is it?", loc), field("Notes", notes));
-    const auth = crewFields(f);
+    const auth = pinFields(f);
     const { save, show } = formEnd(f, b ? "Save changes" : "Add barrel", b ? "#" + b.id : "#barrels");
     f.addEventListener("submit", async ev => {
       ev.preventDefault();
@@ -805,7 +805,7 @@ footer a { color: inherit; }
       const where = loc.value.trim();
       const body = { kind: "barrel", isNew: !b, barrel: id, size: sz, type: type.value.trim(), location: where, notes: notes.value.trim(),
                      moved: !!b && !!where && where !== b.location };
-      if (!await crewPost(body, auth, save, show)) return;
+      if (!await pinPost(body, auth, save, show)) return;
       FLASH = { text: b ? "Saved changes to " + id + "." : "Added " + id + ". Write its NFC tag or print a QR sticker when you're ready." };
       location.hash = id;
     });
@@ -871,7 +871,7 @@ footer a { color: inherit; }
     suggest(yeast, "dl-yeasts", knownYeasts());
     const notes = el("textarea"); notes.value = bl ? bl.notes : "";
     add(f, add(el("div", "two"), field("Starting gravity", grav), field("Starting pH", ph)), field("Yeast", yeast), field("Notes", notes));
-    const auth = crewFields(f);
+    const auth = pinFields(f);
     const { save, show } = formEnd(f, bl ? "Save changes" : "Save blend", bl ? "#blend/" + bl.id : "#blends");
 
     f.addEventListener("submit", async ev => {
@@ -892,7 +892,7 @@ footer a { color: inherit; }
       if (p && !isFinite(Number(p))) return show("pH doesn't look like a number (e.g. 3.5).");
       const body = { kind: "blend", isNew: !bl, blend: id, juiced: juiced.value, apples: apples.join("; "), gravity: g, ph: p,
                      yeast: yeast.value.trim(), notes: notes.value.trim() };
-      if (!await crewPost(body, auth, save, show)) return;
+      if (!await pinPost(body, auth, save, show)) return;
       FLASH = { text: bl ? "Saved changes to blend " + id + "." : "Saved blend " + id + ". You can now fill barrels with it (Barrels → barrel → Fill)." };
       location.hash = "blend/" + id;
     });
@@ -1026,7 +1026,7 @@ footer a { color: inherit; }
     });
     if (!list.children.length) list.appendChild(el("div", "muted", "Not in any barrel yet."));
     $main.appendChild(add(c, list));
-    const ce = card("Crew"), ed = el("a", "button full", "Edit this blend");
+    const ce = card(), ed = el("a", "button full", "Edit this blend");
     ed.href = "#blend/" + id + "/edit";
     $main.appendChild(add(ce, ed));
   }

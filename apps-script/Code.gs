@@ -11,7 +11,7 @@
 // them or add your own. Missing columns are added on the right when needed.
 // Accepted headings (any capitals) are listed in ALIASES below.
 //
-// Crew actions (Fill, Reading, Moved, Bottled, Note, Empty), adding/editing
+// Barrel actions (Fill, Reading, Moved, Bottled, Note, Empty), adding/editing
 // barrels and creating/editing blends all need the PIN.
 // Bottle ratings from friends need no PIN.
 // Anything in the Barrels, Blends and Log tabs can be seen by anyone who has
@@ -106,7 +106,7 @@ function doPost(e) {
     }
 
     if (d.kind === "log") {
-      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong crew PIN" });
+      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong PIN number" });
       if (ACTIONS.indexOf(d.action) < 0) return reply({ ok: false, error: "Unknown action" });
       appendByHeading(tab(ss, "Log"), "Log", { Time: now, Barrel: clean(d.barrel, 10).toUpperCase(), Action: d.action,
         Blend: clean(d.blend, 20).toUpperCase(), Yeast: clean(d.yeast, 60), Gravity: num(d.gravity), pH: num(d.ph),
@@ -121,7 +121,7 @@ function doPost(e) {
     }
 
     if (d.kind === "barrel") {
-      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong crew PIN" });
+      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong PIN number" });
       const id = clean(d.barrel, 10).toUpperCase();
       if (!/^[BD]\d{2,3}$/.test(id)) return reply({ ok: false, error: "Barrel numbers look like B21 or D03" });
       const r = upsertByHeading(tab(ss, "Barrels"), "Barrels", "Barrel", { Barrel: id, Size: numOrText(d.size, 20),
@@ -133,7 +133,7 @@ function doPost(e) {
     }
 
     if (d.kind === "blend") {
-      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong crew PIN" });
+      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong PIN number" });
       const id = clean(d.blend, 10).toUpperCase();
       if (!/^\d{2}[A-Z]{1,2}$/.test(id)) return reply({ ok: false, error: "Blend codes look like 26D" });
       const r = upsertByHeading(tab(ss, "Blends"), "Blends", "Blend", { Blend: id, Juiced: dayDate(d.juiced),
