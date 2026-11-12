@@ -23,7 +23,7 @@ const CREW_PIN = "1234";   // <-- CHANGE THIS
 const TABS = {
   Barrels: ["Barrel", "Size", "Type", "Location", "Notes"],
   Blends:  ["Blend", "Vintage", "Juiced", "Apples", "Gravity", "pH", "Yeast", "Notes"],
-  Log:     ["Time", "Barrel", "Action", "Blend", "Yeast", "Gravity", "pH", "Bottles", "Priming", "Location", "Notes", "By"],
+  Log:     ["Time", "Barrel", "Action", "Blend", "Yeast", "Gravity", "pH", "Bottles", "Priming", "Location", "Notes", "By", "Filled"],
   Ratings: ["Time", "Bottle", "Rating", "Tags", "Name", "Comment"],
 };
 // Sheet tab names (left = what the page calls it, right = the tab name in YOUR Sheet).
@@ -137,7 +137,7 @@ function doPost(e) {
       if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong PIN number" });
       const id = clean(d.barrel, 10).toUpperCase();
       const sh = tab(ss, "Log");
-      const cols = columnsFor(sh, "Log", { Time: 1, Barrel: 1, Action: 1, Blend: 1, Yeast: d.yeast, Notes: d.note });
+      const cols = columnsFor(sh, "Log", { Time: 1, Barrel: 1, Action: 1, Blend: 1, Yeast: d.yeast, Notes: d.note, Filled: d.filled });
       const w = cols.where;
       const n = sh.getLastRow() - 1;
       if (n < 1) return reply({ ok: false, error: id + " has no fill in the Sheet" });
@@ -152,12 +152,10 @@ function doPost(e) {
       set("Blend", clean(d.blend, 20).toUpperCase());
       set("Yeast", clean(d.yeast, 60));
       set("Notes", clean(d.note, 500));
+      // The corrected fill date goes in its own "Filled" column; Time (when it was
+      // entered) is left alone so the order of the Log never changes.
       const day = dayDate(d.filled);
-      if (day) {   // keep the original time of day so the order of the Log stays the same
-        const old = sh.getRange(row, w.Time + 1).getValue();
-        if (old instanceof Date) day.setHours(old.getHours(), old.getMinutes(), old.getSeconds());
-        set("Time", day);
-      }
+      if (day && "Filled" in w) sh.getRange(row, w.Filled + 1).setValue(day).setNumberFormat("d mmm yyyy");
       return reply({ ok: true });
     }
 

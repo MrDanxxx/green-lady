@@ -272,7 +272,7 @@ footer a { color: inherit; }
       switch (ev.action) {
         case "Fill":
           if (b.current) b.history.push(b.current);
-          b.current = { blend: ev.blend, filled: ev.date, yeast: ev.yeast, fillYeast: ev.yeast, fillNote: ev.note, fillEv: ev, yeasts: ev.yeast ? [{ name: ev.yeast, date: ev.date, note: "", by: ev.by }] : [],
+          b.current = { blend: ev.blend, filled: e.Filled ? day(e.Filled) : ev.date, yeast: ev.yeast, fillYeast: ev.yeast, fillNote: ev.note, fillEv: ev, yeasts: ev.yeast ? [{ name: ev.yeast, date: ev.date, note: "", by: ev.by }] : [],
                         events: ev.note || ev.gravity != null || ev.ph != null ? [ev] : [], by: ev.by };
           break;
         case "Moved":
@@ -834,19 +834,11 @@ footer a { color: inherit; }
     const auth = pinFields(f);
     const { save, show } = formEnd(f, "Save changes", "#" + b.id);
 
-    // The fill can't move past this barrel's later notes, or before its previous fill ended.
-    const later = cur.events.filter(e => e !== cur.fillEv).map(e => e.date)
-      .concat(cur.yeasts.slice(cur.fillYeast ? 1 : 0).map(y => y.date)).filter(Boolean).sort();
-    const prev = b.history.length ? b.history[b.history.length - 1] : null;
-    const prevEnd = prev ? ((prev.bottled || prev.emptied || {}).date || "") : "";
-
     f.addEventListener("submit", async ev => {
       ev.preventDefault();
       const d = filled.value;
       if (!d) return show("Enter the date it was filled.");
       if (d > isoToday()) return show("The fill date can't be in the future.");
-      if (later.length && d > later[0]) return show("There's a note from " + fmtDate(later[0]) + ", so the fill date can't be after that.");
-      if (prevEnd && d < prevEnd) return show("The previous fill ended " + fmtDate(prevEnd) + ", so the fill date can't be before that.");
       if (!blend.value) return show("Choose a blend.");
       const body = { kind: "fill", barrel: b.id, blend: blend.value, filled: d, yeast: yeast.value.trim(), note: note.value.trim() };
       if (!await pinPost(body, auth, save, show)) return;
