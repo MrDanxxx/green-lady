@@ -129,12 +129,14 @@ function doPost(e) {
         const r = upsertByHeading(tab(ss, "Barrels"), "Barrels", "Barrel", { Barrel: id, Removed: now }, "edit", { Removed: "d mmm yyyy" });
         return reply(r);
       }
-      const vals = { Barrel: id, Size: numOrText(d.size, 20), Type: clean(d.type, 40), Location: clean(d.location, 60), Notes: clean(d.notes, 500) };
+      const bsh = tab(ss, "Barrels");
+      const vals = { Barrel: id, Size: numOrText(d.size, 20), Type: sameAsSheet(bsh, "Barrels", "Type", clean(d.type, 40)),
+        Location: sameAsSheet(bsh, "Barrels", "Location", clean(d.location, 60)), Notes: clean(d.notes, 500) };
       if (d.isNew) vals.Removed = "";   // re-adding a removed barrel number brings it back
-      const r = upsertByHeading(tab(ss, "Barrels"), "Barrels", "Barrel", vals, d.isNew ? "new" : "edit");
+      const r = upsertByHeading(bsh, "Barrels", "Barrel", vals, d.isNew ? "new" : "edit");
       if (!r.ok) return reply(r);
-      if (d.moved && d.location) appendByHeading(tab(ss, "Log"), "Log", { Time: now, Barrel: id, Action: "Moved",
-        Location: clean(d.location, 60), By: clean(d.by, 40) });
+      if (d.moved && vals.Location) appendByHeading(tab(ss, "Log"), "Log", { Time: now, Barrel: id, Action: "Moved",
+        Location: vals.Location, By: clean(d.by, 40) });
       return reply({ ok: true });
     }
 
@@ -252,7 +254,17 @@ function upsertByHeading(sh, tabKey, keyName, values, mode, formats) {
   const wasRemoved = row && removedCol != null && String(sh.getRange(row, removedCol + 1).getValue()).trim() !== "";
   if (row && mode === "new" && !wasRemoved) return { ok: false, error: id + " already exists" };
   if (!row && mode === "edit") return { ok: false, error: id + " isn't in the Sheet" };
-  if (!row) row = sh.getLastRow() + 1;
+  if (!row) {
+    // New row: write it in one go, so if the Sheet rejects a value nothing half-made is left behind.
+    row = sh.getLastRow() + 1;
+    const line = cols.head.map(function () { return ""; });
+    Object.keys(values).forEach(function (k) { if (k in cols.where) line[cols.where[k]] = values[k]; });
+    sh.getRange(row, 1, 1, line.length).setValues([line]);
+    Object.keys(values).forEach(function (k) {
+      if (formats && formats[k] && values[k] !== "" && k in cols.where) sh.getRange(row, cols.where[k] + 1).setNumberFormat(formats[k]);
+    });
+    return { ok: true };
+  }
   Object.keys(values).forEach(function (k) {
     if (!(k in cols.where)) return;
     const cell = sh.getRange(row, cols.where[k] + 1);
@@ -260,6 +272,21 @@ function upsertByHeading(sh, tabKey, keyName, values, mode, formats) {
     if (formats && formats[k] && values[k] !== "") cell.setNumberFormat(formats[k]);
   });
   return { ok: true };
+}
+
+// If the Sheet already has this value in that column (ignoring capitals and extra
+// spaces, e.g. "Home Farm" vs "Home  Farm"), use the Sheet's spelling, so dropdowns
+// in the Sheet accept it and barrels group together on the page.
+function sameAsSheet(sh, tabKey, colName, value) {
+  if (!value) return value;
+  const cols = columnsFor(sh, tabKey, {});
+  const c = cols.where[colName];
+  if (c == null || sh.getLastRow() < 2) return value;
+  const norm = function (s) { return String(s).replace(/\s+/g, " ").trim().toLowerCase(); };
+  const want = norm(value);
+  const vals = sh.getRange(2, c + 1, sh.getLastRow() - 1, 1).getValues();
+  for (let i = 0; i < vals.length; i++) if (vals[i][0] !== "" && norm(vals[i][0]) === want) return vals[i][0];
+  return value;
 }
 
 // "2026-11-04" from the page's date picker -> a real date (no US/UK mix-ups).
