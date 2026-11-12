@@ -77,6 +77,18 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 input[type=date] { position: relative; padding-right: 46px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232f5d3a' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3Ccircle cx='8' cy='15' r='1' fill='%232f5d3a'/%3E%3Ccircle cx='12' cy='15' r='1' fill='%232f5d3a'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 24px; cursor: pointer; }
 input[type=date]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; opacity: 0; cursor: pointer; }
 .sugg { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; max-height: 240px; overflow-y: auto; margin-top: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.15); }
+/* Trees */
+.map { height: 260px; border-radius: 10px; border: 1px solid var(--line); overflow: hidden; z-index: 0; }
+.map.big { height: 300px; }
+.map.pick { height: 240px; cursor: crosshair; }
+.maplinks { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.pinline { font-size: 13px; color: var(--muted); }
+.trow { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); color: inherit; text-decoration: none; }
+.trow:first-child { border-top: 0; }
+.trow .name { font-weight: 700; }
+.trow .sub { font-size: 14px; color: var(--muted); }
+.trow .pin { font-size: 18px; }
+.leaflet-container { font: inherit; }
 .who { text-align: center; padding: 8px 16px 28px; font-size: 13px; color: var(--muted); }
 .who a, .who button { color: var(--green); font: inherit; font-weight: 600; background: none; border: 0; padding: 4px; cursor: pointer; text-decoration: underline; }
 .bt-row.view { grid-template-columns: 1fr 1.1fr 1.5fr; }
@@ -198,9 +210,9 @@ select.unset option { color: var(--ink); font-style: normal; }
 footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 16px 32px; }
 footer a { color: inherit; }
 .tabs { position: sticky; top: 0; z-index: 5; display: flex; justify-content: center; background: var(--card); border-bottom: 1px solid var(--line); }
-.tabs a { flex: 1; max-width: 214px; text-align: center; padding: 14px 6px 11px; font-weight: 600; color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; }
+.tabs a { flex: 1 1 auto; white-space: nowrap; max-width: 214px; text-align: center; padding: 14px 6px 11px; font-weight: 600; color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; }
 .tabs a.on { color: var(--green); border-bottom-color: var(--green); }
-@media (max-width: 420px) { .tabs a { font-size: 14px; padding: 13px 2px 10px; white-space: nowrap; } }
+@media (max-width: 560px) { .tabs a { font-size: 13.5px; padding: 13px 5px 10px; } }
 .subtabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
 .subtabs a { text-align: center; padding: 9px 4px; border-radius: 9px; font-weight: 600; font-size: 14px; color: var(--muted); text-decoration: none; }
 .subtabs a.on { background: var(--btn); color: #fff; }
@@ -247,6 +259,7 @@ footer a { color: inherit; }
   <a href="#blends" data-tab="blends">Juice Blends</a>
   <a href="#bottles" data-tab="bottles">Bottles</a>
   <a href="#league" data-tab="league">League</a>
+  <a href="#trees" data-tab="trees">Trees</a>
 </nav>
 
 <main id="main" aria-live="polite">
@@ -283,7 +296,7 @@ footer a { color: inherit; }
   };
   // Brewer sign-in: the PIN is entered once per phone and kept; phones that aren't signed in see no editing buttons.
   const crew = () => !!store.get("gl-pin");
-  const BREWER_ONLY = /^(BARRELS\/NEW|BLENDS\/NEW|BOTTLES\/REPRINT|PRINT\/.*|LABELS\/.*|BLEND\/[^/]+\/EDIT|[A-Z]\d{2,3}\/(EDIT|FILL|BOTTLE|EMPTY))$/;   // pages that change records
+  const BREWER_ONLY = /^(TREES\/NEW|TREE\/.+\/EDIT|BARRELS\/NEW|BLENDS\/NEW|BOTTLES\/REPRINT|PRINT\/.*|LABELS\/.*|BLEND\/[^/]+\/EDIT|[A-Z]\d{2,3}\/(EDIT|FILL|BOTTLE|EMPTY))$/;   // pages that change records
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -342,6 +355,13 @@ footer a { color: inherit; }
   function build(raw) {
     const blends = {}, barrels = {}, order = [], runs = {}, ratings = {}, bottleRatings = {}, reviews = {};
     const used = { names: [], primings: [] };   // for "used before" suggestions
+    const trees = {};
+    (raw.Trees || []).forEach(r => {
+      const name = tidy(r.Tree); if (!name) return;
+      const lat = numv(r.Lat), lng = numv(r.Lng);
+      trees[name.toUpperCase()] = { name, variety: tidy(r.Variety), location: tidy(r.Location), lat, lng,
+        hasPin: lat != null && lng != null, contact: String(r.Contact || "").trim(), notes: String(r.Notes || "").trim() };
+    });
     (raw.Blends || []).forEach(r => {
       if (!r.Blend) return;
       const id = tidy(r.Blend).toUpperCase();
@@ -422,14 +442,14 @@ footer a { color: inherit; }
         String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => b.tags[t] = (b.tags[t] || 0) + 1);
       }
     });
-    return { blends, barrels, order, runs, ratings, bottleRatings, reviews, used };
+    return { blends, barrels, order, runs, ratings, bottleRatings, reviews, used, trees };
   }
   function lastGravity(events) {
     const g = (events || []).filter(e => e.gravity != null);
     return g.length ? g[g.length - 1].gravity : null;
   }
   async function load() {
-    const r = await fetch(API, { cache: "no-store" });
+    const r = await fetch(API + (crew() ? "?pin=" + encodeURIComponent(store.get("gl-pin")) : ""), { cache: "no-store" });
     DB = build(await r.json());
   }
   async function post(body) {
@@ -1560,6 +1580,179 @@ footer a { color: inherit; }
     }
   }
 
+  // ----- Trees: apple trees we pick from, with a map pin each -----
+  // Map: Leaflet + OpenStreetMap, loaded only when a Trees page needs it.
+  let leafletP = null;
+  function leaflet() {
+    if (window.L) return Promise.resolve(window.L);
+    if (!leafletP) leafletP = new Promise((ok, bad) => {
+      const css = document.createElement("link"); css.rel = "stylesheet";
+      css.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"; document.head.appendChild(css);
+      const js = document.createElement("script"); js.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+      js.onload = () => ok(window.L); js.onerror = () => { leafletP = null; bad(new Error("map")); }; document.head.appendChild(js);
+    });
+    return leafletP;
+  }
+  const HOME = [57.05, -2.5];   // where the map starts when there are no pins yet
+  function makeMap(box, L) {
+    const map = L.map(box, { scrollWheelZoom: false, attributionControl: true });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+    return map;
+  }
+  const pinIcon = L => L.divIcon({ className: "", html: '<div style="font-size:30px;line-height:1;transform:translate(-50%,-100%);position:absolute">📍</div>', iconSize: [0, 0] });
+  const gmaps = t => "https://www.google.com/maps/search/?api=1&query=" + t.lat + "," + t.lng;
+  const treeHref = t => "#tree/" + encodeURIComponent(t.name);
+  function treeList() { return Object.values(DB.trees).sort((a, b) => a.name.localeCompare(b.name)); }
+
+  function treesTab() {
+    page("Trees", "trees");
+    const list = treeList();
+    $main.appendChild(tabHead("Apple Trees", list.length ? list.length + (list.length === 1 ? " tree" : " trees") : null, crew() ? "+ Add tree" : null, "#trees/new"));
+    if (!list.length) { $main.appendChild(add(card(), el("p", "muted", "No trees yet."))); return; }
+    const pinned = list.filter(t => t.hasPin);
+    if (pinned.length) {
+      const mc = card(), box = el("div", "map big");
+      $main.appendChild(add(mc, box));
+      leaflet().then(L => {
+        const map = makeMap(box, L), pts = [];
+        pinned.forEach(t => {
+          const m = L.marker([t.lat, t.lng], { icon: pinIcon(L) }).addTo(map);
+          m.bindPopup('<a href="' + treeHref(t) + '"><b>' + esc(t.name) + "</b></a>" + (t.variety ? "<br>" + esc(t.variety) : ""));
+          pts.push([t.lat, t.lng]);
+        });
+        if (pts.length === 1) map.setView(pts[0], 15); else map.fitBounds(pts, { padding: [30, 30], maxZoom: 15 });
+      }).catch(() => box.replaceWith(el("p", "muted", "The map couldn't load. Check your connection.")));
+    }
+    const c = card(), rows = el("div");
+    list.forEach(t => {
+      const a = el("a", "trow"); a.href = treeHref(t);
+      const left = el("div");
+      add(left, el("div", "name", t.name), el("div", "sub", [t.variety, t.location].filter(Boolean).join(" · ") || "No details yet"));
+      add(a, left, el("span", "pin", t.hasPin ? "📍" : ""));
+      rows.appendChild(a);
+    });
+    $main.appendChild(add(c, rows));
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch])); }
+
+  function treePage(t) {
+    page(t.name, "trees");
+    const top = card(), head = el("div", "head"), h = el("div");
+    add(h, el("h1", null, t.name), t.location ? el("div", "sub", t.location) : null);
+    add(head, h, t.variety ? el("span", "pill tag", t.variety) : null);
+    top.appendChild(head);
+    $main.appendChild(top);
+    if (t.hasPin) {
+      const mc = card("Map"), box = el("div", "map");
+      const links = el("div", "maplinks"), g = el("a", "button soft small", "Open in Google Maps");
+      g.href = gmaps(t); g.target = "_blank"; g.rel = "noopener";
+      links.appendChild(g);
+      $main.appendChild(add(mc, box, links));
+      leaflet().then(L => {
+        const map = makeMap(box, L);
+        L.marker([t.lat, t.lng], { icon: pinIcon(L) }).addTo(map);
+        map.setView([t.lat, t.lng], 16);
+      }).catch(() => box.replaceWith(el("p", "muted", "The map couldn't load. Check your connection.")));
+    }
+    if (crew() && t.contact) $main.appendChild(add(card("Contact"), el("p", "notes", t.contact)));
+    if (t.notes) $main.appendChild(add(card("Notes"), el("p", "notes", t.notes)));
+    if (crew()) {
+      const ce = card(), ed = el("a", "button primary full", "Edit this tree");
+      ed.href = treeHref(t) + "/edit";
+      $main.appendChild(add(ce, ed));
+    }
+  }
+
+  function treeForm(t) {
+    const f = formCard(t ? "Edit " + t.name : "Add a tree", "trees");
+    const all = treeList();
+    const name = input(t ? t.name : "", { placeholder: "e.g. Big Bertha", autocomplete: "off" });
+    const varieties = all.map(x => x.variety);
+    Object.values(DB.blends).forEach(x => x.apples.forEach(a => varieties.push(a.variety)));
+    const variety = input(t ? t.variety : "", { placeholder: "e.g. Bramley" });
+    suggest(variety, "dl-tree-varieties", varieties);
+    const places = all.map(x => x.location);
+    Object.values(DB.blends).forEach(x => x.apples.forEach(a => places.push(a.location)));
+    const loc = input(t ? t.location : "", { placeholder: "e.g. Deeside, by the old mill" });
+    suggest(loc, "dl-tree-places", places);
+    add(f, field("Nickname", name), field("Apple variety", variety), field("Location", loc));
+
+    // map pin: tap the map, or use where you're standing
+    let lat = t && t.hasPin ? t.lat : null, lng = t && t.hasPin ? t.lng : null;
+    const pinBox = el("div", "lbl"), box = el("div", "map pick"), line = el("div", "pinline");
+    const here = el("button", "soft small", "📍 Use where I am now"), clear = el("button", "soft small", "Remove pin");
+    here.type = clear.type = "button";
+    add(pinBox, el("div", "lbl-t", "Map pin"), el("div", "pinline", "Tap the map where the tree is, or stand by the tree and use where you are now."), box, add(el("div", "maplinks"), here, clear), line);
+    f.appendChild(pinBox);
+    let map = null, marker = null, Lf = null;
+    const showPin = () => {
+      line.textContent = lat != null ? "Pin at " + lat.toFixed(5) + ", " + lng.toFixed(5) : "No pin yet.";
+      clear.hidden = lat == null;
+      if (!map) return;
+      if (lat == null) { if (marker) { marker.remove(); marker = null; } return; }
+      if (!marker) marker = Lf.marker([lat, lng], { icon: pinIcon(Lf), draggable: true }).addTo(map).on("dragend", e => { const q = e.target.getLatLng(); lat = q.lat; lng = q.lng; showPin(); });
+      else marker.setLatLng([lat, lng]);
+    };
+    showPin();
+    leaflet().then(L => {
+      Lf = L; map = makeMap(box, L);
+      const others = all.filter(x => x.hasPin && (!t || x.name !== t.name)).map(x => [x.lat, x.lng]);
+      if (lat != null) map.setView([lat, lng], 16);
+      else if (others.length) map.fitBounds(others, { padding: [30, 30], maxZoom: 15 });
+      else map.setView(HOME, 9);
+      map.on("click", e => { lat = e.latlng.lat; lng = e.latlng.lng; showPin(); });
+      showPin();
+    }).catch(() => box.replaceWith(el("p", "muted", "The map couldn't load. You can still use where you are now.")));
+    here.addEventListener("click", () => {
+      if (!navigator.geolocation) { line.textContent = "This device can't find its location."; return; }
+      here.disabled = true; here.textContent = "Finding you…";
+      navigator.geolocation.getCurrentPosition(pos => {
+        here.disabled = false; here.textContent = "📍 Use where I am now";
+        lat = pos.coords.latitude; lng = pos.coords.longitude; showPin();
+        if (map) map.setView([lat, lng], 17);
+      }, () => {
+        here.disabled = false; here.textContent = "📍 Use where I am now";
+        line.textContent = "Couldn't get your location. Allow location for this site, or tap the map instead.";
+      }, { enableHighAccuracy: true, timeout: 15000 });
+    });
+    clear.addEventListener("click", () => { lat = lng = null; showPin(); });
+
+    const contact = input(t ? t.contact : "", { placeholder: "e.g. Jock, 07700 900123" });
+    suggest(contact, "dl-contacts", all.map(x => x.contact));
+    const notes = el("textarea"); notes.value = t ? t.notes : ""; notes.placeholder = "e.g. Ready late September, ask before picking";
+    add(f, field("Contact", contact, "only you see this, not friends"), field("Notes", notes));
+    const auth = pinFields(f);
+    const { save, show } = formEnd(f, t ? "Save changes" : "Add tree", t ? treeHref(t) : "#trees");
+    if (t) {
+      const del = el("button", "danger full", "Delete tree");
+      del.type = "button"; del.style.marginTop = "8px";
+      f.appendChild(del);
+      const ask = el("div", "confirm");
+      const yes = el("button", "danger-solid", "Yes, delete"), no = el("button", "soft", "No");
+      yes.type = no.type = "button";
+      add(ask, el("p", null, "Delete tree – are you sure?"), add(el("div", "btns"), yes, no));
+      del.addEventListener("click", () => { del.replaceWith(ask); });
+      no.addEventListener("click", () => { ask.replaceWith(del); });
+      yes.addEventListener("click", async () => {
+        if (!await pinPost({ kind: "tree", remove: true, tree: t.name }, auth, yes, show)) return;
+        FLASH = { text: t.name + " deleted." };
+        location.hash = "trees";
+      });
+    }
+    f.addEventListener("submit", async ev => {
+      ev.preventDefault();
+      const nm = tidy(name.value);
+      if (!nm) return show("Give the tree a nickname.");
+      if (nm.includes("/")) return show("The nickname can't have a / in it.");
+      const clash = DB.trees[nm.toUpperCase()];
+      if (clash && (!t || clash.name.toUpperCase() !== t.name.toUpperCase())) return show("There's already a tree called " + clash.name + ".");
+      const body = { kind: "tree", isNew: !t, old: t ? t.name : "", tree: nm, variety: variety.value.trim(), location: loc.value.trim(),
+                     lat: lat != null ? lat.toFixed(6) : "", lng: lng != null ? lng.toFixed(6) : "", contact: contact.value.trim(), notes: notes.value.trim() };
+      if (!await pinPost(body, auth, save, show)) return;
+      location.hash = "tree/" + encodeURIComponent(nm);
+    });
+  }
+
   // ----- league table -----
   // League tab: Blend rating -> Barrel rating -> Bottle rating, with Back at each step.
   function league(level) {
@@ -1787,7 +1980,8 @@ footer a { color: inherit; }
     if (/^SIGNIN(\/|$)/.test(up)) signInPage(raw.replace(/^signin\/?/i, ""));
     else if (brewerOnly && !crew()) {
       const bm = /^([A-Z]\d{2,3})\//.exec(up), lm = /^BLEND\/([^/]+)\/EDIT$/.exec(up), pm = /^(?:PRINT|LABELS)\/([^/]+)/.exec(up);
-      const to = bm && DB.barrels[bm[1]] ? bm[1] : lm && DB.blends[lm[1]] ? "blend/" + lm[1] : pm && parseCode(pm[1]) ? "bottles" : /^BOTTLES/.test(up) ? "bottles" : "barrels";
+      const tm = /^TREE\/(.+)\/EDIT$/.exec(up);
+      const to = tm && DB.trees[tm[1]] ? "tree/" + encodeURIComponent(DB.trees[tm[1]].name) : /^TREES/.test(up) ? "trees" : bm && DB.barrels[bm[1]] ? bm[1] : lm && DB.blends[lm[1]] ? "blend/" + lm[1] : pm && parseCode(pm[1]) ? "bottles" : /^BOTTLES/.test(up) ? "bottles" : "barrels";
       history.replaceState(null, "", "#" + to);
       return route();
     }
@@ -1799,6 +1993,10 @@ footer a { color: inherit; }
     else if (up === "BOTTLES") bottlesTab();
     else if (up === "BOTTLES/REPRINT") bottlesTab("reprint");
     else if ((m = /^REVIEW\/([^/]+)(\/LEAGUE)?$/.exec(up)) && parseCode(m[1])) reviewPage(parseCode(m[1]).code, m[2] ? "league" : "");
+    else if (up === "TREES") treesTab();
+    else if (up === "TREES/NEW") treeForm(null);
+    else if ((m = /^TREE\/(.+)\/EDIT$/.exec(up)) && DB.trees[m[1]]) treeForm(DB.trees[m[1]]);
+    else if ((m = /^TREE\/(.+)$/.exec(up)) && DB.trees[m[1]]) treePage(DB.trees[m[1]]);
     else if (up === "LEAGUE") league();
     else if (up === "LEAGUE/BARRELS") league("barrels");
     else if (up === "LEAGUE/BOTTLES") league("bottles");

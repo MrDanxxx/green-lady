@@ -25,6 +25,7 @@ const TABS = {
   Blends:  ["Blend", "Vintage", "Juiced", "Apples", "Gravity", "pH", "Yeast", "Notes"],
   Log:     ["Time", "Barrel", "Action", "Blend", "Yeast", "Gravity", "pH", "Bottles", "Priming", "Location", "Notes", "By", "Filled"],
   Ratings: ["Time", "Bottle", "Rating", "Tags", "Name", "Comment", "Removed"],
+  Trees:   ["Tree", "Variety", "Location", "Lat", "Lng", "Contact", "Notes", "Removed"],
 };
 // Sheet tab names (left = what the page calls it, right = the tab name in YOUR Sheet).
 const TAB_NAMES = {
@@ -32,6 +33,7 @@ const TAB_NAMES = {
   Blends:  "Blends",
   Log:     "Fermentation and bottling",
   Ratings: "Ratings",
+  Trees:   "Trees",
 };
 // Other headings accepted for each column (lower case).
 const ALIASES = {
@@ -40,6 +42,8 @@ const ALIASES = {
   Log:     { Time: ["date", "when", "date/time"], Barrel: ["vessel"], Action: ["what"], Yeast: ["yiest"], Gravity: ["sg"],
              Location: ["where"], Notes: ["note", "comment", "comments"], By: ["who", "name"] },
   Ratings: { Time: ["date"] },
+  Trees:   { Tree: ["nickname", "nick name", "name"], Variety: ["apple variety", "apple"], Lat: ["latitude"], Lng: ["longitude", "long", "lon"],
+             Notes: ["note"] },
 };
 const ACTIONS = ["Fill", "Reading", "Moved", "Bottled", "Note", "Empty"];
 const RATINGS = ["Superb", "Good", "OK", "Meh", "Poor"];   // 5 ratings, best first
@@ -62,7 +66,7 @@ function setup() {
   tab(ss, "Log").getRange("E:E").setNumberFormat("0.000");
 }
 
-function doGet() {
+function doGet(e) {
   const ss = SpreadsheetApp.getActive();
   const tz = ss.getSpreadsheetTimeZone();
   const out = {};
@@ -89,6 +93,10 @@ function doGet() {
   out.Ratings = out.Ratings.filter(function (r) { return !r.Removed; })
     .map(function (r) { return { Bottle: r.Bottle, Rating: r.Rating, Tags: r.Tags || "", Time: String(r.Time || "").slice(0, 10),
       Name: r.Name || "", Comment: r.Comment || "", Row: r._row }; });   // reviews are public; Row lets the PIN holder censor one
+  // Trees: deleted ones left out; the Contact column only goes to a signed-in page (it sends the PIN).
+  const crew = e && e.parameter && String(e.parameter.pin || "") === String(CREW_PIN);
+  out.Trees = (out.Trees || []).filter(function (t) { return !t.Removed; })
+    .map(function (t) { const o = {}; Object.keys(t).forEach(function (k) { if (k !== "_row" && (crew || k !== "Contact")) o[k] = t[k]; }); return o; });
   return reply(out);
 }
 
@@ -211,6 +219,40 @@ function doPost(e) {
         Apples: clean(d.apples, 1000), Gravity: num(d.gravity), pH: num(d.ph), Yeast: clean(d.yeast, 60),
         Notes: clean(d.notes, 1000) }, d.isNew ? "new" : "edit", { Juiced: "d mmm yyyy", Gravity: "0.000" });
       return reply(r);
+    }
+
+    // Apple trees: add, edit (nickname can change), or delete (marked Removed).
+    if (d.kind === "tree") {
+      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong PIN number" });
+      const sh = tab(ss, "Trees");
+      const name = clean(d.tree, 40), old = clean(d.old || d.tree, 40);
+      if (!name || name.indexOf("/") >= 0) return reply({ ok: false, error: "Give the tree a nickname (no /)" });
+      const cols = columnsFor(sh, "Trees", { Tree: name, Removed: "x" });
+      const kc = cols.where.Tree, rc = cols.where.Removed;
+      const findRow = function (n) {
+        if (sh.getLastRow() < 2) return 0;
+        const vals = sh.getRange(2, 1, sh.getLastRow() - 1, cols.head.length).getValues();
+        for (let i = 0; i < vals.length; i++) {
+          if (String(vals[i][kc]).trim().toUpperCase() === n.toUpperCase() && String(vals[i][rc]).trim() === "") return i + 2;
+        }
+        return 0;
+      };
+      if (d.remove) {
+        const row = findRow(name);
+        if (!row) return reply({ ok: false, error: name + " isn't in the Sheet" });
+        sh.getRange(row, rc + 1).setValue(dayDate(Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), "yyyy-MM-dd"))).setNumberFormat("d mmm yyyy");
+        return reply({ ok: true });
+      }
+      const row = d.isNew ? 0 : findRow(old);
+      if (!d.isNew && !row) return reply({ ok: false, error: old + " isn't in the Sheet" });
+      const other = findRow(name);
+      if (other && other !== row) return reply({ ok: false, error: "There's already a tree called " + name });
+      const values = { Tree: name, Variety: clean(d.variety, 60), Location: clean(d.location, 120), Lat: num(d.lat), Lng: num(d.lng),
+                       Contact: clean(d.contact, 200), Notes: clean(d.notes, 1000) };
+      if (!row) { appendByHeading(sh, "Trees", values); return reply({ ok: true }); }
+      const c2 = columnsFor(sh, "Trees", values);
+      Object.keys(values).forEach(function (k) { if (k in c2.where) sh.getRange(row, c2.where[k] + 1).setValue(values[k]); });
+      return reply({ ok: true });
     }
 
     return reply({ ok: false, error: "Unknown request" });
