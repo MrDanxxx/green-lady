@@ -94,14 +94,14 @@ button:disabled { opacity: .5; cursor: default; }
 button.small, .button.small { padding: 6px 14px; font-size: 14px; flex: none; }
 .bhead { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 10px; }
 .bhead h1 { font-family: Fraunces, Georgia, serif; margin: 0; font-size: 28px; line-height: 1.15; white-space: nowrap; }
-.bhead .pill { justify-self: center; }
-.bhead .button.small { padding: 6px 10px; font-size: 13px; line-height: 1.25; max-width: 110px; }
+.bhead .pill { justify-self: center; background: var(--green); color: var(--card); font-size: 17px; font-weight: 700; padding: 7px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+.bhead .button.small { padding: 8px 12px; font-size: 15px; font-weight: 700; line-height: 1.2; max-width: 120px; border: 2px solid var(--green); color: var(--green); }
 .bhead .sub { grid-column: 1 / -1; margin-top: 2px; }
 @media (max-width: 440px) {
   .bhead { column-gap: 8px; }
   .bhead h1 { font-size: 23px; }
-  .bhead .pill { font-size: 12px; padding: 3px 9px; }
-  .bhead .button.small { max-width: 72px; padding: 5px 8px; font-size: 12px; }
+  .bhead .pill { font-size: 14px; padding: 5px 11px; }
+  .bhead .button.small { max-width: 80px; padding: 6px 8px; font-size: 13px; }
 }
 form { margin-top: 14px; display: grid; gap: 12px; }
 label { display: grid; gap: 4px; font-size: 14px; font-weight: 600; }
