@@ -866,7 +866,7 @@ footer a { color: inherit; }
                      moved: !!b && !!where && where !== b.location };
       if (!await pinPost(body, auth, save, show)) return;
       FLASH = { text: b ? "Saved changes to " + id + "." : id + " added." };
-      location.hash = b ? id : "barrels";   // a new barrel goes back to the list
+      location.hash = "barrels";   // back to the list after adding or editing
     });
   }
 
