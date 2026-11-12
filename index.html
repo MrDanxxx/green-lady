@@ -932,13 +932,11 @@ footer a { color: inherit; }
     stat(grid, "Blend", cur.blend, blend ? blend.apples.map(x => x.variety).join(", ") : null, true);
     stat(grid, "Filled", fmtDate(cur.filled), ago(cur.filled), true);
     f.appendChild(grid);
-    const why = el("textarea"); why.placeholder = "e.g. racked into B12, or spoiled";
-    f.appendChild(field("Why is it being emptied?", why));
     const auth = pinFields(f);
     const { save, show } = formEnd(f, "Empty it", "#" + b.id);
     f.addEventListener("submit", async ev => {
       ev.preventDefault();
-      const body = { kind: "log", action: "Empty", barrel: b.id, blend: cur.blend, note: why.value.trim() };
+      const body = { kind: "log", action: "Empty", barrel: b.id, blend: cur.blend };
       if (!await pinPost(body, auth, save, show)) return;
       FLASH = { text: "Emptied: " + b.id + "." };
       location.hash = b.id;
