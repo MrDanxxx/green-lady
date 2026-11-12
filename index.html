@@ -90,7 +90,12 @@ button, .button { font: inherit; font-weight: 600; border-radius: 10px; border: 
 button.primary, .button.primary { background: var(--green); border-color: var(--green); color: var(--card); }
 button:disabled { opacity: .5; cursor: default; }
 .full { width: 100%; }
-button.small { padding: 6px 14px; font-size: 14px; flex: none; }
+button.small, .button.small { padding: 6px 14px; font-size: 14px; flex: none; }
+.bhead { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 10px; }
+.bhead h1 { font-family: Fraunces, Georgia, serif; margin: 0; font-size: 28px; line-height: 1.15; white-space: nowrap; }
+.bhead .pill { justify-self: center; }
+.bhead .button.small { padding: 6px 10px; font-size: 13px; line-height: 1.25; max-width: 110px; }
+.bhead .sub { grid-column: 1 / -1; margin-top: 2px; }
 form { margin-top: 14px; display: grid; gap: 12px; }
 label { display: grid; gap: 4px; font-size: 14px; font-weight: 600; }
 label small { font-weight: 400; color: var(--muted); }
@@ -543,10 +548,18 @@ footer a { color: inherit; }
     $main.replaceChildren();
     window.scrollTo(0, 0);
 
-    const top = card(), head = el("div", "head"), h = el("div");
-    add(h, el("h1", null, vesselName(b)), el("div", "sub", [b.size, b.type, b.location].filter(Boolean).join(" · ")));
-    add(head, h, cur ? el("span", "pill", "Blend " + cur.blend) : el("span", "pill empty", "Empty"));
-    top.appendChild(head);
+    const top = card(), subLine = el("div", "sub", [b.size, b.type, b.location].filter(Boolean).join(" · "));
+    if (cur) {
+      // Barrel number · blend (centred between) · Edit fill details (top right)
+      const head = el("div", "bhead"), ef = el("a", "button small", "Edit fill details");
+      ef.href = "#" + b.id + "/fill";
+      add(head, el("h1", null, vesselName(b)), el("span", "pill", "Blend " + cur.blend), ef, subLine);
+      top.appendChild(head);
+    } else {
+      const head = el("div", "head"), h = el("div");
+      add(h, el("h1", null, vesselName(b)), subLine);
+      top.appendChild(add(head, h, el("span", "pill empty", "Empty")));
+    }
     if (cur) {
       const grid = el("div", "stats");
       stat(grid, "Filled", fmtDate(cur.filled), ago(cur.filled), true);
@@ -558,9 +571,6 @@ footer a { color: inherit; }
       }
       top.appendChild(grid);
       if (!blend) top.appendChild(el("p", "muted", "Blend " + cur.blend + " isn't in the Blends tab yet."));
-      const ef = el("a", "button full", "Edit fill details");
-      ef.href = "#" + b.id + "/fill"; ef.style.marginTop = "12px";
-      top.appendChild(ef);
     } else top.appendChild(el("p", "muted", "Nothing in this " + (/^D/.test(b.id) ? "demijohn" : "barrel") + " at the moment."));
     $main.appendChild(top);
 
