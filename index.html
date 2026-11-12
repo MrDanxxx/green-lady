@@ -26,18 +26,21 @@
   --bg: #f4efe2; --card: #fffdf7; --ink: #1d2a20; --muted: #5f6b5f; --line: #e2dccb;
   --green: #2f5d3a; --green-deep: #1c3a25; --apple: #7fae3a; --gold: #b8913c; --pill: #e6f0d6;
   --good: #3f8a3a; --ok: #c99a2e; --poor: #b5483a; --input: #ffffff;
+  --tag-bg: #fbe3b4; --tag-ink: #7a4510; --tag-line: #ecc98a;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #121a14; --card: #1b261e; --ink: #ecf0e6; --muted: #9fae9f; --line: #2c3a2f;
     --green: #8fc56a; --green-deep: #0e1d13; --apple: #9ccc55; --gold: #d8b25c; --pill: #26391f;
     --good: #6dbb5f; --ok: #e0b54a; --poor: #e07563; --input: #142017;
+    --tag-bg: #4a3818; --tag-ink: #f5d48f; --tag-line: #6b5226;
   }
 }
 :root[data-theme="dark"] {
   --bg: #121a14; --card: #1b261e; --ink: #ecf0e6; --muted: #9fae9f; --line: #2c3a2f;
   --green: #8fc56a; --green-deep: #0e1d13; --apple: #9ccc55; --gold: #d8b25c; --pill: #26391f;
   --good: #6dbb5f; --ok: #e0b54a; --poor: #e07563; --input: #142017;
+    --tag-bg: #4a3818; --tag-ink: #f5d48f; --tag-line: #6b5226;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 Inter, system-ui, sans-serif; }
@@ -94,7 +97,7 @@ button:disabled { opacity: .5; cursor: default; }
 button.small, .button.small { padding: 6px 14px; font-size: 14px; flex: none; }
 .bhead { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 10px; }
 .bhead h1 { font-family: Fraunces, Georgia, serif; margin: 0; font-size: 28px; line-height: 1.15; white-space: nowrap; }
-.bhead .pill { justify-self: center; background: var(--green); color: var(--card); font-size: 17px; font-weight: 700; padding: 7px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+.bhead .pill { justify-self: center; background: var(--tag-bg); color: var(--tag-ink); border: 1px solid var(--tag-line); font-size: 17px; font-weight: 700; padding: 7px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
 .bhead .button.small { padding: 8px 12px; font-size: 15px; font-weight: 700; line-height: 1.2; max-width: 120px; border: 2px solid var(--green); color: var(--green); }
 .bhead .sub { grid-column: 1 / -1; margin-top: 2px; }
 @media (max-width: 440px) {
