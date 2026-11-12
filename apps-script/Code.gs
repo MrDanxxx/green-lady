@@ -24,7 +24,7 @@ const TABS = {
   Barrels: ["Barrel", "Size", "Type", "Location", "Notes", "Removed"],
   Blends:  ["Blend", "Vintage", "Juiced", "Apples", "Gravity", "pH", "Yeast", "Notes"],
   Log:     ["Time", "Barrel", "Action", "Blend", "Yeast", "Gravity", "pH", "Bottles", "Priming", "Location", "Notes", "By", "Filled"],
-  Ratings: ["Time", "Bottle", "Rating", "Tags", "Name", "Comment"],
+  Ratings: ["Time", "Bottle", "Rating", "Tags", "Name", "Comment", "Removed"],
 };
 // Sheet tab names (left = what the page calls it, right = the tab name in YOUR Sheet).
 const TAB_NAMES = {
@@ -72,20 +72,23 @@ function doGet() {
     const rows = sh.getDataRange().getValues();
     const head = rows.shift().map(function (h) { return canon(name, h); });
     out[name] = rows
-      .filter(function (r) { return r.some(function (x) { return x !== ""; }); })
-      .map(function (r) {
-        const o = {};
+      .map(function (r, n) {
+        if (!r.some(function (x) { return x !== ""; })) return null;
+        const o = { _row: n + 2 };   // the Sheet row, so a rating can be removed later
         head.forEach(function (h, i) {
           let x = r[i];
           if (x instanceof Date) x = Utilities.formatDate(x, tz, "yyyy-MM-dd HH:mm");
           if (x !== "" && h) o[h] = x;
         });
         return o;
-      });
+      })
+      .filter(function (o) { return o; });
   });
   // Friends' names and comments stay private.
   // The date is kept (not the time) so the page can show how long a bottle had aged when tasted.
-  out.Ratings = out.Ratings.map(function (r) { return { Bottle: r.Bottle, Rating: r.Rating, Tags: r.Tags || "", Time: String(r.Time || "").slice(0, 10) }; });
+  // Removed ratings (spurious or malicious) are left out, so every score updates.
+  out.Ratings = out.Ratings.filter(function (r) { return !r.Removed; })
+    .map(function (r) { return { Bottle: r.Bottle, Rating: r.Rating, Tags: r.Tags || "", Time: String(r.Time || "").slice(0, 10) }; });
   return reply(out);
 }
 
@@ -98,6 +101,37 @@ function doPost(e) {
     const now = new Date();
 
     if (d.kind === "pin") return reply({ ok: String(d.pin) === String(CREW_PIN) });
+
+    // PIN only: one bottle's ratings in full (with names and comments), to check them.
+    if (d.kind === "ratingsFor") {
+      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong PIN number" });
+      const code = clean(d.bottle, 30).toUpperCase();
+      const sh = tab(ss, "Ratings"), tz = ss.getSpreadsheetTimeZone();
+      const rows = sh.getDataRange().getValues(), head = rows.shift().map(function (h) { return canon("Ratings", h); });
+      const col = function (k) { return head.indexOf(k); };
+      const list = [];
+      rows.forEach(function (r, i) {
+        if (String(r[col("Bottle")]).trim().toUpperCase() !== code) return;
+        if (col("Removed") >= 0 && r[col("Removed")] !== "") return;
+        const t = r[col("Time")];
+        list.push({ row: i + 2, time: t instanceof Date ? Utilities.formatDate(t, tz, "yyyy-MM-dd HH:mm") : String(t || ""),
+          rating: r[col("Rating")], tags: col("Tags") >= 0 ? r[col("Tags")] : "", name: col("Name") >= 0 ? r[col("Name")] : "",
+          comment: col("Comment") >= 0 ? r[col("Comment")] : "" });
+      });
+      return reply({ ok: true, ratings: list });
+    }
+
+    // PIN only: mark one rating as Removed (the row stays in the Sheet, dated).
+    if (d.kind === "removeRating") {
+      if (String(d.pin) !== String(CREW_PIN)) return reply({ ok: false, error: "Wrong PIN number" });
+      const sh = tab(ss, "Ratings"), row = Number(d.row);
+      if (!(row >= 2 && row <= sh.getLastRow())) return reply({ ok: false, error: "That rating isn't in the Sheet" });
+      const cols = columnsFor(sh, "Ratings", { Removed: now });
+      const bottle = String(sh.getRange(row, cols.where.Bottle + 1).getValue()).trim().toUpperCase();
+      if (bottle !== clean(d.bottle, 30).toUpperCase()) return reply({ ok: false, error: "That rating has moved - reload and try again" });
+      sh.getRange(row, cols.where.Removed + 1).setValue(now).setNumberFormat("d mmm yyyy");
+      return reply({ ok: true });
+    }
 
     if (d.kind === "rating") {
       if (RATINGS.indexOf(d.rating) < 0) return reply({ ok: false, error: "Unknown rating" });

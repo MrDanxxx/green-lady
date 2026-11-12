@@ -102,6 +102,7 @@ button.primary, .button.primary { background: var(--btn); border-color: var(--bt
 .button.soft, button.soft { background: var(--pill); border-color: color-mix(in srgb, var(--btn) 35%, transparent); color: var(--green); }
 button:disabled { opacity: .5; cursor: default; }
 .full { width: 100%; }
+.list .row .danger.small { flex: none; align-self: center; }
 button.small, .button.small { padding: 6px 14px; font-size: 14px; flex: none; }
 .bhead { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 10px; }
 .bhead h1 { font-family: Fraunces, Georgia, serif; margin: 0; font-size: 28px; line-height: 1.15; white-space: nowrap; }
@@ -1407,6 +1408,61 @@ footer a { color: inherit; }
     $main.appendChild(add(sheetWrap, sheet));
   }
 
+  // ----- PIN only: see one bottle's ratings in full and remove a spurious or malicious one -----
+  function manageCard(code) {
+    const c = card("Manage ratings");
+    c.appendChild(el("p", "sub", "See each rating for " + code + ", with names and comments. A removed rating stops counting everywhere (bottle, barrel and blend)."));
+    const f = el("form", "codebox"); f.style.marginTop = "10px";
+    const pin = input(store.get("gl-pin") || "", { type: "password", inputMode: "numeric", placeholder: "PIN number" });
+    pin.style.textTransform = "none";
+    const go = el("button", "primary", "Show ratings");
+    const msg = el("div", "msg err"); msg.hidden = true; msg.style.marginTop = "10px";
+    const out = el("div");
+    add(c, add(f, pin, go), msg, out);
+    const show = t => { msg.textContent = t; msg.hidden = false; };
+    async function list() {
+      msg.hidden = true;
+      if (!pin.value.trim()) return show("Enter the PIN number.");
+      go.disabled = true;
+      let r; try { r = await post({ kind: "ratingsFor", pin: pin.value.trim(), bottle: code }); } catch (e) { r = null; }
+      go.disabled = false;
+      if (!r) return show("No connection. Try again.");
+      if (!r.ok) { if (/pin/i.test(r.error || "")) store.del("gl-pin"); return show(/pin/i.test(r.error || "") ? "Wrong PIN number." : (r.error || "Couldn't load the ratings.")); }
+      store.set("gl-pin", pin.value.trim());
+      out.replaceChildren();
+      if (!r.ratings.length) { out.appendChild(el("p", "muted", "No ratings for this bottle.")); return; }
+      const ul = el("div", "list"); ul.style.marginTop = "12px";
+      r.ratings.forEach(x => {
+        const row = el("div", "row"), left = el("div"); left.style.flex = "1";
+        const e = (RATE.find(q => q[0] === x.rating) || ["", "", x.rating])[1];
+        add(left, el("div", "name", e + " " + x.rating + (x.name ? " · " + x.name : "")),
+            el("div", "sub", [fmtDate(day(x.time)), x.tags].filter(Boolean).join(" · ")),
+            x.comment ? el("div", "notes", "“" + x.comment + "”") : null);
+        const rm = el("button", "danger small", "Remove"); rm.type = "button";
+        rm.addEventListener("click", () => {   // in-page "are you sure?"
+          const ask = el("div", "confirm");
+          const yes = el("button", "danger-solid", "Yes, remove"), no = el("button", "soft", "No");
+          yes.type = no.type = "button";
+          add(ask, el("p", null, "Remove this rating – are you sure?"), add(el("div", "btns"), yes, no));
+          row.after(ask); rm.disabled = true;
+          no.addEventListener("click", () => { ask.remove(); rm.disabled = false; });
+          yes.addEventListener("click", async () => {
+            yes.disabled = true; yes.textContent = "Removing…";
+            let k; try { k = await post({ kind: "removeRating", pin: pin.value.trim(), bottle: code, row: x.row }); } catch (er) { k = null; }
+            if (!k || !k.ok) { ask.remove(); rm.disabled = false; return show(k && k.error ? k.error : "Couldn't remove it. Try again."); }
+            FLASH = { text: "Rating removed. Scores have been updated." };
+            try { await load(); } catch (er) {}
+            route();
+          });
+        });
+        ul.appendChild(add(row, left, rm));
+      });
+      out.appendChild(ul);
+    }
+    f.addEventListener("submit", ev => { ev.preventDefault(); list(); });
+    return c;
+  }
+
   // ----- League detail pages: blend / + barrel / + bottling, each with a Back button -----
   function leagueDetail(kind, code) {
     const p = kind === "blend" ? null : parseCode(code);
@@ -1488,6 +1544,7 @@ footer a { color: inherit; }
     if (run && run.note) ct.appendChild(el("p", "notes", run.note));
     if (!ct.querySelector(".stats, .notes")) ct.appendChild(el("p", "muted", "Not bottled yet."));
     $main.appendChild(ct);
+    $main.appendChild(manageCard(p.code));
   }
 
   // ---------- routing ----------
