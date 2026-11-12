@@ -1052,7 +1052,7 @@ footer a { color: inherit; }
         ? { kind: "fill", barrel: b.id, blend: blend.value, filled: d, yeast: yeast.value.trim(), note: cur.fillNote || "" }   // no note box; keep any existing fill note
         : { kind: "log", action: "Fill", barrel: b.id, blend: blend.value, filled: d, yeast: yeast.value.trim() };
       if (!await pinPost(body, auth, save, show)) return;
-      FLASH = { text: cur ? "Saved fill details for " + b.id + "." : "Filled: " + b.id + "." };
+      if (!cur) FLASH = { text: "Filled: " + b.id + "." };
       location.hash = b.id;
     });
   }
