@@ -920,7 +920,7 @@ footer a { color: inherit; }
     add(f, add(el("div", "two"), field("How many labels?", cnt), field("First number", first)));
     const msg = el("div", "msg err"); msg.hidden = true;
     const mk = el("button", "primary full", "Make labels");
-    const done = el("a", "button soft full", "Done – no labels now"); done.href = "#" + p.barrel;
+    const done = el("a", "button soft full", "Done – no labels now"); done.href = "#barrels";
     add(f, mk, msg, done);
     f.addEventListener("submit", ev => {
       ev.preventDefault();
@@ -1341,8 +1341,13 @@ footer a { color: inherit; }
       }
     }
     const pr = el("button", "primary full", "Print"); pr.type = "button"; pr.style.marginTop = "12px";
-    pr.addEventListener("click", () => window.print());
-    ctl.appendChild(pr);
+    // after printing (or Done), always go back to the Barrels list
+    pr.addEventListener("click", () => {
+      window.addEventListener("afterprint", () => { location.hash = "barrels"; }, { once: true });
+      window.print();
+    });
+    const dn = el("a", "button soft full", "Done"); dn.href = "#barrels"; dn.style.marginTop = "10px";
+    add(ctl, pr, dn);
     $main.appendChild(ctl);
     const sheet = el("div", "sheet");
     items.forEach(it => {
