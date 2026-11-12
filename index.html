@@ -270,7 +270,7 @@ footer a { color: inherit; }
 
   // ---------- data ----------
   function build(raw) {
-    const blends = {}, barrels = {}, order = [], runs = {}, ratings = {}, bottleRatings = {}, ratingList = [];
+    const blends = {}, barrels = {}, order = [], runs = {}, ratings = {}, bottleRatings = {};
     (raw.Blends || []).forEach(r => {
       if (!r.Blend) return;
       const id = tidy(r.Blend).toUpperCase();
@@ -338,21 +338,17 @@ footer a { color: inherit; }
       const p = parseCode(r.Bottle);
       if (!p || !["Good", "OK", "Poor"].includes(r.Rating)) return;
       const k = p.run;
-      const bottled = runs[k] && runs[k].bottled, tasted = day(r.Time);
-      const age = bottled && tasted ? daysBetween(bottled, tasted) : null;   // days in the bottle when tasted
-      ratingList.push({ run: k, code: p.code, rating: r.Rating, age: age != null && age >= 0 ? age : null });
       const a = ratings[k] || (ratings[k] = { Good: 0, OK: 0, Poor: 0, n: 0, tags: {} });
       a[r.Rating]++; a.n++;
       String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => a.tags[t] = (a.tags[t] || 0) + 1);
       if (!runs[k]) runs[k] = { key: k, blend: p.blend, barrel: p.barrel };
       if (p.n) {   // each numbered bottle, for the Bottle rating table
-        const b = bottleRatings[p.code] || (bottleRatings[p.code] = { code: p.code, blend: p.blend, barrel: p.barrel, n: 0, Good: 0, OK: 0, Poor: 0, tags: {}, ages: [] });
+        const b = bottleRatings[p.code] || (bottleRatings[p.code] = { code: p.code, blend: p.blend, barrel: p.barrel, n: 0, Good: 0, OK: 0, Poor: 0, tags: {} });
         b[r.Rating]++; b.n++;
-        if (age != null && age >= 0) b.ages.push(age);
         String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => b.tags[t] = (b.tags[t] || 0) + 1);
       }
     });
-    return { blends, barrels, order, runs, ratings, bottleRatings, ratingList };
+    return { blends, barrels, order, runs, ratings, bottleRatings };
   }
   function lastGravity(events) {
     const g = (events || []).filter(e => e.gravity != null);
@@ -1078,30 +1074,6 @@ footer a { color: inherit; }
   }
 
   // ----- bottle page + rating -----
-  // ----- ratings by how long the bottle had aged when it was tasted -----
-  function ageText(d) {
-    if (d < 14) return d + (d === 1 ? " day" : " days");
-    if (d < 61) return Math.round(d / 7) + " weeks";
-    const m = Math.round(d / 30.44); return m + (m === 1 ? " month" : " months");
-  }
-  const AGE_BANDS = [[0, 30, "Under 1 month"], [30, 91, "1–3 months"], [91, 183, "3–6 months"], [183, Infinity, "6 months or more"]];
-  function ageCard(pick) {
-    const list = DB.ratingList.filter(x => x.age != null && pick(x));
-    if (!list.length) return null;
-    const c = card("With age in the bottle");
-    c.appendChild(el("p", "sub", "How long the bottle had aged when it was tasted."));
-    AGE_BANDS.forEach(([lo, hi, label]) => {
-      const inBand = list.filter(x => x.age >= lo && x.age < hi);
-      if (!inBand.length) return;
-      const agg = { Good: 0, OK: 0, Poor: 0, n: 0, tags: {} };
-      inBand.forEach(x => { agg[x.rating]++; agg.n++; });
-      const row = el("div"); row.style.marginTop = "12px";
-      add(row, add(el("div", "head"), el("strong", null, label), el("span", "score", Math.round(score(agg) * 100) + "%")), ratingBar(agg));
-      c.appendChild(row);
-    });
-    return c;
-  }
-
   function bottlePage(p) {
     const blend = DB.blends[p.blend], run = DB.runs[p.run], barrel = DB.barrels[p.barrel];
     setVintage(blend ? blend.vintage : null);
@@ -1128,7 +1100,6 @@ footer a { color: inherit; }
     $main.appendChild(top);
 
     $main.appendChild(rateCard(p));
-    add($main, ageCard(x => x.run === p.run));
     add($main, yeastCard(run && run.yeasts, (run && run.yeast) || (blend && blend.yeast)));   // no apples box on bottle pages
     if (run && (run.priming || run.note)) $main.appendChild(add(card("Bottling"), el("p", "notes", [run.priming ? "Priming: " + run.priming : "", run.note].filter(Boolean).join("\n"))));
   }
@@ -1298,8 +1269,7 @@ footer a { color: inherit; }
     } else {
       rows = Object.values(DB.bottleRatings).map(b => {
         const bl = DB.blends[b.blend];
-        const aged = b.ages.length ? "tasted " + ageText(Math.max(...b.ages)) + " after bottling" : null;
-        return { href: "#league/bottle/" + b.code, name: "Bottle " + b.code, sub: [(bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(b.blend) + " · " + b.barrel, aged].filter(Boolean).join(" · "), agg: b };
+        return { href: "#league/bottle/" + b.code, name: "Bottle " + b.code, sub: (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(b.blend) + " · " + b.barrel, agg: b };
       });
     }
     rows.sort((a, b) => score(b.agg) - score(a.agg) || b.agg.n - a.agg.n);
@@ -1417,10 +1387,7 @@ footer a { color: inherit; }
     if (gb.children.length) cb.appendChild(gb); else cb.appendChild(el("p", "muted", "No details for this blend yet."));
     $main.appendChild(cb);
     add($main, applesCard(bl));
-    if (kind === "blend") {
-      $main.appendChild(ageCard(x => DB.runs[x.run] && DB.runs[x.run].blend === blendId) || document.createTextNode(""));
-      return;
-    }
+    if (kind === "blend") return;
 
     // the barrel: same as the barrel's own page (dates, yeast, notes) for this fill
     let fill = run && run.events ? run : null;
@@ -1447,7 +1414,7 @@ footer a { color: inherit; }
     $main.appendChild(cn);
 
     // the bottling (bottle details only, not barrel details)
-    if (kind === "barrel") return;   // no bottling or age box on barrel details
+    if (kind === "barrel") return;   // no bottling box on barrel details
     const ct = card("The bottling"), gt = el("div", "stats");
     gt.style.marginTop = "0";
     if (run && run.bottled) stat(gt, "Bottled", fmtDate(run.bottled), ago(run.bottled), true);
@@ -1455,10 +1422,6 @@ footer a { color: inherit; }
     if (run && run.fg != null) stat(gt, "Final gravity", sg(run.fg));
     if (bl && bl.gravity != null && run && run.fg != null) stat(gt, "Strength", "≈ " + abv(bl.gravity, run.fg).toFixed(1) + "%", "ABV");
     if (run && run.priming) stat(gt, "Priming sugar", run.priming, null, true);
-    if (kind === "bottle") {
-      const b = DB.bottleRatings[p.code];
-      if (b && b.ages.length) stat(gt, "Age when tasted", ageText(Math.max(...b.ages)), "in the bottle", true);
-    }
     if (gt.children.length) ct.appendChild(gt);
     if (run && run.note) ct.appendChild(el("p", "notes", run.note));
     if (!ct.querySelector(".stats, .notes")) ct.appendChild(el("p", "muted", "Not bottled yet."));
