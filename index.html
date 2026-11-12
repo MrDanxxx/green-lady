@@ -918,10 +918,9 @@ footer a { color: inherit; }
     const back = el("a", "button soft small", "‹ Back"); back.href = "#" + p.barrel; back.style.marginBottom = "12px";
     $main.insertBefore(back, $main.firstChild);
     f.appendChild(el("p", "sub", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(p.blend) + " from " + (b ? vesselName(b) : p.barrel) +
-      (r && r.bottled ? " · bottled " + fmtDate(r.bottled) : "") + ". Each label gets its own number and QR code for rating. If you're carrying on from earlier labels, change the first number."));
+      (r && r.bottled ? " · bottled " + fmtDate(r.bottled) : "") + ". Each label gets its own number (from 1) and QR code for rating."));
     const cnt = input(String(count || (r && r.bottles) || ""), { inputMode: "numeric", placeholder: "e.g. 23" });
-    const first = input("1", { inputMode: "numeric" });
-    add(f, add(el("div", "two"), field("How many labels?", cnt), field("First number", first)));
+    add(f, field("How many labels?", cnt));
     const msg = el("div", "msg err"); msg.hidden = true;
     const mk = el("button", "primary full", "Make labels");
     const done = el("a", "button soft full", "Done – no labels now"); done.href = "#barrels";
@@ -930,7 +929,8 @@ footer a { color: inherit; }
       ev.preventDefault();
       const n = parseInt(cnt.value, 10);
       if (!n || n < 1) { msg.textContent = "How many labels?"; msg.hidden = false; return; }
-      location.hash = "labels/" + run + "/" + n + "/" + (parseInt(first.value, 10) || 1);
+      if (r && r.bottles && n > r.bottles) { msg.textContent = "This bottling was " + r.bottles + " bottles, so make at most " + r.bottles + " labels."; msg.hidden = false; return; }
+      location.hash = "labels/" + run + "/" + n;
     });
   }
 
@@ -1344,14 +1344,14 @@ footer a { color: inherit; }
     } else {
       const m = /^([^/]+)\/(\d+)(?:\/(\d+))?$/.exec(arg), p = m && parseCode(m[1]);
       if (!p) { barrelsTab("Label link not recognised."); return; }
-      const count = Math.min(500, parseInt(m[2], 10) || 24), start = parseInt(m[3] || "1", 10) || 1;
+      const r = DB.runs[p.run], start = 1;   // labels always numbered from 1, so every code passes the bottle check
+      const count = Math.min(500, (r && r.bottles) || 500, parseInt(m[2], 10) || 24);
       const bl = DB.blends[p.blend];
       const f = el("form", "two"); f.style.marginTop = "0";
       const l1 = el("label"); l1.appendChild(document.createTextNode("How many")); const i1 = el("input"); i1.inputMode = "numeric"; i1.value = count; l1.appendChild(i1);
-      const l2 = el("label"); l2.appendChild(document.createTextNode("First number")); const i2 = el("input"); i2.inputMode = "numeric"; i2.value = start; l2.appendChild(i2);
-      add(f, l1, l2);
-      const upd = () => { location.hash = "labels/" + p.run + "/" + (parseInt(i1.value, 10) || 1) + "/" + (parseInt(i2.value, 10) || 1); };
-      i1.addEventListener("change", upd); i2.addEventListener("change", upd);
+      add(f, l1);
+      const upd = () => { location.hash = "labels/" + p.run + "/" + (parseInt(i1.value, 10) || 1); };
+      i1.addEventListener("change", upd);
       f.addEventListener("submit", e => { e.preventDefault(); upd(); });
       ctl.appendChild(f);
       for (let n = start; n < start + count; n++) {
