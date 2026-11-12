@@ -502,7 +502,7 @@ footer a { color: inherit; }
 
   function bottlesTab() {
     page("Bottles", "bottles");
-    const c1 = card("Look up a bottle");
+    const c1 = card("Look up a bottle and rate it");
     c1.appendChild(el("p", "sub", "Scan the label, or type the code from the label (e.g. 26A-B07 or 26A-B07-031)."));
     const f = el("form", "codebox"), inp = el("input");
     inp.placeholder = "e.g. 26A-B07"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Bottle code");
