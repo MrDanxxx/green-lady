@@ -682,20 +682,6 @@ footer a { color: inherit; }
       inputs.blend.addEventListener("change", fillYeast);
       fillYeast();
     }
-    // Bottle it: print the bottle labels from here (batch = this blend in this barrel).
-    if (action === "Bottled" && b.current) {
-      const run = b.current.blend + "-" + b.id;
-      const first = input("1", { inputMode: "numeric" });
-      const mk = el("button", "primary full", "Make labels"); mk.type = "button";
-      const lbox = add(el("div", "confirm"), el("h3", null, "Print bottle labels"), field("First number", first, "Uses “How many bottles?” above. Batch " + run), mk);
-      lbox.querySelector("h3").style.marginTop = "0";
-      mk.addEventListener("click", () => {
-        const n = parseInt(inputs.bottles.value, 10);
-        if (!n) return show("Enter how many bottles first.");
-        location.hash = "labels/" + run + "/" + n + "/" + (parseInt(first.value, 10) || 1);
-      });
-      f.appendChild(lbox);
-    }
     const auth = pinFields(f);
     const msg = el("div", "msg"); msg.hidden = true;
     const save = el("button", "primary full", bare ? "Save note" : "Save");
