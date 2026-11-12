@@ -273,7 +273,7 @@ footer a { color: inherit; }
           if (b.current) b.current.events.push(ev);
           break;
         case "Reading": case "Note":
-          if (b.current) b.current.events.push(ev);
+          if (b.current) { b.current.events.push(ev); if (ev.yeast) b.current.yeast = ev.yeast; }
           break;
         case "Bottled": {
           const fill = b.current || { blend: ev.blend, filled: "", events: [] };
@@ -330,14 +330,15 @@ footer a { color: inherit; }
     return add(c, ul);
   }
   function readingsCard(events, title) {
-    const rows = (events || []).filter(e => e.gravity != null || e.ph != null || e.note || e.action === "Moved");
+    const rows = (events || []).filter(e => e.gravity != null || e.ph != null || e.note || e.yeast || e.action === "Moved");
     if (!rows.length) return null;
     const c = card(title || "Readings"), t = el("table"), hr = el("tr");
     ["Date", "Gravity", "pH", "Notes"].forEach(x => hr.appendChild(el("th", null, x)));
     t.appendChild(hr);
     rows.forEach(r => {
       const tr = el("tr");
-      const note = r.action === "Moved" ? "Moved to " + r.location + (r.note ? " – " + r.note : "") : r.note;
+      const note = r.action === "Moved" ? "Moved to " + r.location + (r.note ? " – " + r.note : "")
+                 : [r.yeast ? "Yeast: " + r.yeast : "", r.note].filter(Boolean).join(" – ");
       add(tr, el("td", "num", fmtDate(r.date)), el("td", "num", r.gravity != null ? sg(r.gravity) : "–"),
           el("td", "num", r.ph != null ? String(r.ph) : "–"), el("td", null, [note, r.by ? "(" + r.by + ")" : ""].filter(Boolean).join(" ")));
       t.appendChild(tr);
@@ -561,18 +562,19 @@ footer a { color: inherit; }
   const FIELDS = {
     Fill:    [["blend", "Which blend?", "blend"], ["yeast", "Yeast", "yeast"], ["note", "Note", "text"]],
     Reading: [["gravity", "Gravity", "gravity"], ["ph", "pH", "ph"], ["note", "Note", "text"]],
+    Yeast:   [["yeast", "Yeast", "yeast"], ["note", "Amount / note", "text"]],
     Bottled: [["bottles", "How many bottles?", "int"], ["gravity", "Final gravity", "gravity"], ["priming", "Priming sugar", "short", "e.g. 6 g per litre, or none"], ["note", "Note", "text"]],
     Moved:   [["location", "Moved to", "location"], ["note", "Note", "text"]],
     Note:    [["note", "Note", "text"]],
     Empty:   [["note", "Why? (racked, spoiled…)", "text"]],
   };
-  const LABEL = { Fill: "Fill this barrel", Reading: "+ Reading", Bottled: "Bottled", Moved: "Moved", Note: "+ Note", Empty: "Emptied" };
+  const LABEL = { Fill: "Fill this barrel", Reading: "+ Reading", Bottled: "Bottled", Moved: "Moved", Note: "+ Note", Empty: "Emptied", Yeast: "+ Yeast" };
 
   function crewCard(b) {
     const c = card("Crew");
     c.appendChild(el("p", "sub", "Record what's happened to this " + (/^D/.test(b.id) ? "demijohn" : "barrel") + ". Needs the crew PIN."));
     const btns = el("div", "btns"), slot = el("div");
-    const actions = b.current ? ["Reading", "Bottled", "Note", "Moved", "Empty"] : ["Fill", "Moved"];
+    const actions = b.current ? ["Reading", "Yeast", "Note", "Bottled", "Moved", "Empty"] : ["Fill", "Moved"];
     actions.forEach((a, i) => {
       const bt = el("button", i === 0 ? "primary" : null, LABEL[a]);
       bt.type = "button";
@@ -637,8 +639,9 @@ footer a { color: inherit; }
 
     f.addEventListener("submit", async ev => {
       ev.preventDefault();
-      const body = { kind: "log", action, barrel: b.id };
+      const body = { kind: "log", action: action === "Yeast" ? "Note" : action, barrel: b.id };
       Object.keys(inputs).forEach(k => body[k] = inputs[k].value.trim());
+      if (action === "Yeast" && !body.yeast) return show("Which yeast?");
       if (action === "Fill" && !body.blend) return show("Create the blend first: Blends tab → + New blend.");
       if (action === "Bottled") body.blend = b.current ? b.current.blend : "";
       if (body.gravity) body.gravity = gravityVal(body.gravity);
