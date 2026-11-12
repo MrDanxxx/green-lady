@@ -510,8 +510,15 @@ footer a { color: inherit; }
     });
   }
 
-  function bottlesTab() {
+  function bottlesTab(which) {
     page("Bottles", "bottles");
+    // two tabs inside Bottles
+    const sub = el("nav", "subtabs"); sub.style.gridTemplateColumns = "1fr 1fr";
+    [["look", "Look up a bottle and rate it", "#bottles"], ["reprint", "Reprint bottle labels", "#bottles/reprint"]].forEach(([k, t, h]) => {
+      const a = el("a", k === (which || "look") ? "on" : null, t); a.href = h; sub.appendChild(a);
+    });
+    $main.appendChild(sub);
+    if (which === "reprint") return reprintCard();
     const c1 = card("Look up a bottle and rate it");
     c1.appendChild(el("p", "sub", "Scan the label, or type the code from the label (e.g. 26A-B07-031)."));
     const f = el("form", "codebox"), inp = el("input");
@@ -532,8 +539,12 @@ footer a { color: inherit; }
     });
     $main.appendChild(add(c1, f, fmsg));
 
-    // Reprint labels for a batch that's already been bottled (e.g. the printer jammed).
+  }
+
+  // Reprint labels for a batch that's already been bottled (e.g. the printer jammed).
+  function reprintCard() {
     const done = Object.values(DB.runs).filter(r => r.bottled).sort((a, b) => (b.bottled || "").localeCompare(a.bottled || ""));
+    if (!done.length) $main.appendChild(add(card("Reprint bottle labels"), el("p", "muted", "Nothing bottled yet.")));
     if (done.length) {
       const c2 = card("Reprint bottle labels"), rf = el("form"); rf.style.marginTop = "0";
       const sel = el("select");
@@ -931,7 +942,7 @@ footer a { color: inherit; }
   function printPage(run, count) {
     const p = parseCode(run), b = DB.barrels[p.barrel], r = DB.runs[run], bl = DB.blends[p.blend];
     const f = formCard("Print bottle labels", "barrels");
-    const back = el("a", "button soft small", "‹ Back"); back.href = count ? "#" + p.barrel : "#bottles"; back.style.marginBottom = "12px";
+    const back = el("a", "button soft small", "‹ Back"); back.href = count ? "#" + p.barrel : "#bottles/reprint"; back.style.marginBottom = "12px";
     $main.insertBefore(back, $main.firstChild);
     f.appendChild(el("p", "sub", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(p.blend) + " from " + (b ? vesselName(b) : p.barrel) +
       (r && r.bottled ? " · bottled " + fmtDate(r.bottled) : "") + ". Each label gets its own number (from 1) and QR code for rating."));
@@ -1491,6 +1502,7 @@ footer a { color: inherit; }
     else if (up === "BLENDS") blendsTab();
     else if (up === "BLENDS/NEW") blendForm(null);
     else if (up === "BOTTLES") bottlesTab();
+    else if (up === "BOTTLES/REPRINT") bottlesTab("reprint");
     else if (up === "LEAGUE") league();
     else if (up === "LEAGUE/BARRELS") league("barrels");
     else if (up === "LEAGUE/BOTTLES") league("bottles");
