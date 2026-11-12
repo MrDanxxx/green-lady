@@ -852,7 +852,6 @@ footer a { color: inherit; }
       if (sz && !isFinite(Number(sz))) return show("Size should be a number of litres, e.g. 30.");
       const where = loc.value.trim();
       const body = { kind: "barrel", isNew: !b, barrel: id, size: sz, type: type.value.trim(), location: where, notes: b ? b.notes : "",   // no notes box; keep any already in the Sheet
-                    
                      moved: !!b && !!where && where !== b.location };
       if (!await pinPost(body, auth, save, show)) return;
       FLASH = { text: b ? "Saved changes to " + id + "." : "Added " + id + ". Write its NFC tag or print a QR sticker when you're ready." };
