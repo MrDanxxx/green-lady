@@ -594,10 +594,10 @@ footer a { color: inherit; }
   const LABEL = { Fill: "Fill this barrel", Reading: "+ Reading", Bottled: "Bottled", Moved: "Moved", Note: "+ Note", Empty: "Emptied", Yeast: "+ Yeast" };
 
   // Full barrel: just a notes box, with the other actions tucked under "More".
-  // Empty barrel: Fill (and Moved), since there's nothing to make notes about yet.
+  // Empty barrel: Fill (location changes via Edit barrel details).
   function crewCard(b) {
     const btns = el("div", "btns"), slot = el("div");
-    const actions = b.current ? ["Reading", "Yeast", "Bottled", "Moved", "Empty"] : ["Fill", "Moved"];
+    const actions = b.current ? ["Reading", "Yeast", "Bottled", "Moved", "Empty"] : ["Fill"];
     actions.forEach((a, i) => {
       const bt = el("button", !b.current && i === 0 ? "primary" : null, LABEL[a]);
       bt.type = "button";
