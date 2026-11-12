@@ -15,8 +15,8 @@
 // barrels and creating/editing blends all need the PIN.
 // Bottle ratings from friends need no PIN.
 // Anything in the Barrels, Blends and Log tabs can be seen by anyone who has
-// the page link. Ratings are shown only as counts (names and comments stay
-// private in the Sheet).
+// the page link. Ratings are public reviews (rating, tags, first name, comment);
+// removed ratings are left out.
 
 const CREW_PIN = "1234";   // <-- CHANGE THIS
 
@@ -84,11 +84,11 @@ function doGet() {
       })
       .filter(function (o) { return o; });
   });
-  // Friends' names and comments stay private.
   // The date is kept (not the time) so the page can show how long a bottle had aged when tasted.
   // Removed ratings (spurious or malicious) are left out, so every score updates.
   out.Ratings = out.Ratings.filter(function (r) { return !r.Removed; })
-    .map(function (r) { return { Bottle: r.Bottle, Rating: r.Rating, Tags: r.Tags || "", Time: String(r.Time || "").slice(0, 10) }; });
+    .map(function (r) { return { Bottle: r.Bottle, Rating: r.Rating, Tags: r.Tags || "", Time: String(r.Time || "").slice(0, 10),
+      Name: r.Name || "", Comment: r.Comment || "" }; });   // reviews are public: everyone can read them
   return reply(out);
 }
 

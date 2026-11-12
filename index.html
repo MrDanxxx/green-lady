@@ -274,7 +274,7 @@ footer a { color: inherit; }
 
   // ---------- data ----------
   function build(raw) {
-    const blends = {}, barrels = {}, order = [], runs = {}, ratings = {}, bottleRatings = {};
+    const blends = {}, barrels = {}, order = [], runs = {}, ratings = {}, bottleRatings = {}, reviews = {};
     (raw.Blends || []).forEach(r => {
       if (!r.Blend) return;
       const id = tidy(r.Blend).toUpperCase();
@@ -346,13 +346,14 @@ footer a { color: inherit; }
       a[r.Rating]++; a.n++;
       String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => a.tags[t] = (a.tags[t] || 0) + 1);
       if (!runs[k]) runs[k] = { key: k, blend: p.blend, barrel: p.barrel };
+      if (p.n) (reviews[p.code] ||= []).push({ rating: r.Rating, tags: tidy(r.Tags), name: tidy(r.Name), comment: String(r.Comment || "").trim(), date: day(r.Time) });
       if (p.n) {   // each numbered bottle, for the Bottle rating table
         const b = bottleRatings[p.code] || (bottleRatings[p.code] = { code: p.code, blend: p.blend, barrel: p.barrel, n: 0, Good: 0, OK: 0, Poor: 0, tags: {} });
         b[r.Rating]++; b.n++;
         String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => b.tags[t] = (b.tags[t] || 0) + 1);
       }
     });
-    return { blends, barrels, order, runs, ratings, bottleRatings };
+    return { blends, barrels, order, runs, ratings, bottleRatings, reviews };
   }
   function lastGravity(events) {
     const g = (events || []).filter(e => e.gravity != null);
@@ -1131,6 +1132,39 @@ footer a { color: inherit; }
     return null;
   }
 
+  // ----- a bottle's reviews: public, on their own page -----
+  function reviewButton(code, backTo) {
+    const list = DB.reviews[code];
+    if (!list || !list.length) return null;
+    const a = el("a", "button primary small", list.length === 1 ? "See review" : "See reviews (" + list.length + ")");
+    a.href = "#review/" + code + (backTo ? "/" + backTo : "");
+    return a;
+  }
+  function reviewPage(code, backTo) {
+    const p = parseCode(code), bl = DB.blends[p.blend];
+    setVintage(bl ? bl.vintage : null);
+    document.title = "Review of bottle " + code + " · Green Lady";
+    $main.replaceChildren();
+    window.scrollTo(0, 0);
+    setTab(backTo === "league" ? "league" : "bottles");
+    const back = el("a", "button soft small", "‹ Back"); back.href = backTo === "league" ? "#league/bottle/" + code : "#" + code; back.style.marginBottom = "12px";
+    $main.appendChild(back);
+    const list = DB.reviews[code] || [];
+    const c = card(list.length === 1 ? "Review" : "Reviews");
+    c.appendChild(el("p", "sub", "Bottle " + code + (bl ? " · " + vlabel(bl.vintage) + " · Blend " + blendLetter(p.blend) : "") + " · from " + p.barrel));
+    if (!list.length) c.appendChild(el("p", "muted", "No reviews yet."));
+    const ul = el("div", "list"); ul.style.marginTop = "12px";
+    list.slice().reverse().forEach(x => {
+      const r = RATE.find(q => q[0] === x.rating) || ["", "", x.rating];
+      const box = el("div");
+      add(box, el("div", "name", r[1] + " " + r[2] + (x.name ? " · " + x.name : "")),
+          el("div", "sub", [x.date ? fmtDate(x.date) : null, x.tags].filter(Boolean).join(" · ")),
+          x.comment ? el("p", "notes", "“" + x.comment + "”") : null);
+      ul.appendChild(add(el("div", "row"), box));
+    });
+    $main.appendChild(add(c, ul));
+  }
+
   function bottlePage(p) {
     const blend = DB.blends[p.blend], run = DB.runs[p.run], barrel = DB.barrels[p.barrel];
     setVintage(blend ? blend.vintage : null);
@@ -1144,6 +1178,8 @@ footer a { color: inherit; }
         el("div", "sub", [p.n ? "Bottle " + p.n : null, "from " + (barrel ? vesselName(barrel) : p.barrel) + (barrel && barrel.size ? " (" + barrel.size + ")" : "")].filter(Boolean).join(" · ")));
     add(head, h, el("span", "pill", p.code));
     top.appendChild(head);
+    const rv = p.n ? reviewButton(p.code) : null;
+    if (rv) { rv.style.marginTop = "10px"; top.appendChild(rv); }
     const grid = el("div", "stats");
     if (blend) {
       if (blend.juiced) stat(grid, "Juiced", fmtDate(blend.juiced), null, true);
@@ -1216,9 +1252,9 @@ footer a { color: inherit; }
     });
     extra.appendChild(chips);
     const f = el("form");
-    const ln = el("label"); ln.appendChild(document.createTextNode("Your first name ")); ln.lastChild.after(el("small", null, "optional"));
+    const ln = el("label"); ln.appendChild(document.createTextNode("Your first name ")); ln.lastChild.after(el("small", null, "optional, shown with your review"));
     const name = el("input"); name.value = store.get("gl-name") || ""; ln.appendChild(name);
-    const lc = el("label"); lc.appendChild(document.createTextNode("Comment ")); lc.lastChild.after(el("small", null, "optional, only the cider maker sees it"));
+    const lc = el("label"); lc.appendChild(document.createTextNode("Comment ")); lc.lastChild.after(el("small", null, "optional, everyone can see it"));
     const comment = el("textarea"); lc.appendChild(comment);
     const send = el("button", "primary full", "Send rating"); send.disabled = true;
     const msg = el("div", "msg err"); msg.hidden = true;
@@ -1496,6 +1532,8 @@ footer a { color: inherit; }
     const top = card(), head = el("div", "head");
     add(head, el("h1", null, title), agg && agg.n ? el("span", "score", Math.round(score(agg) * 100) + "%") : null);
     add(top, head, ratingBar(agg));
+    const rv = kind === "bottle" ? reviewButton(p.code, "league") : null;
+    if (rv) { rv.style.marginTop = "10px"; top.appendChild(rv); }
     $main.appendChild(top);
 
     // the blend
@@ -1560,6 +1598,7 @@ footer a { color: inherit; }
     else if (up === "BLENDS/NEW") blendForm(null);
     else if (up === "BOTTLES") bottlesTab();
     else if (up === "BOTTLES/REPRINT") bottlesTab("reprint");
+    else if ((m = /^REVIEW\/([^/]+)(\/LEAGUE)?$/.exec(up)) && parseCode(m[1])) reviewPage(parseCode(m[1]).code, m[2] ? "league" : "");
     else if (up === "LEAGUE") league();
     else if (up === "LEAGUE/BARRELS") league("barrels");
     else if (up === "LEAGUE/BOTTLES") league("bottles");
