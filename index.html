@@ -269,7 +269,7 @@ footer a { color: inherit; }
 
   // ---------- data ----------
   function build(raw) {
-    const blends = {}, barrels = {}, order = [], runs = {}, ratings = {};
+    const blends = {}, barrels = {}, order = [], runs = {}, ratings = {}, bottleRatings = {};
     (raw.Blends || []).forEach(r => {
       if (!r.Blend) return;
       const id = tidy(r.Blend).toUpperCase();
@@ -341,8 +341,13 @@ footer a { color: inherit; }
       a[r.Rating]++; a.n++;
       String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => a.tags[t] = (a.tags[t] || 0) + 1);
       if (!runs[k]) runs[k] = { key: k, blend: p.blend, barrel: p.barrel };
+      if (p.n) {   // each numbered bottle, for the Bottle rating table
+        const b = bottleRatings[p.code] || (bottleRatings[p.code] = { code: p.code, blend: p.blend, barrel: p.barrel, n: 0, Good: 0, OK: 0, Poor: 0, tags: {} });
+        b[r.Rating]++; b.n++;
+        String(r.Tags || "").split(",").map(tidy).filter(Boolean).forEach(t => b.tags[t] = (b.tags[t] || 0) + 1);
+      }
     });
-    return { blends, barrels, order, runs, ratings };
+    return { blends, barrels, order, runs, ratings, bottleRatings };
   }
   function lastGravity(events) {
     const g = (events || []).filter(e => e.gravity != null);
@@ -1199,52 +1204,68 @@ footer a { color: inherit; }
   }
 
   // ----- league table -----
-  function league() {
+  // League tab: Blend rating -> Barrel rating -> Bottle rating, with Back at each step.
+  function league(level) {
+    level = level || "blends";
     setVintage(null);
     document.title = "League table · Green Lady";
     setTab("league");
     $main.replaceChildren();
     window.scrollTo(0, 0);
-    const rated = Object.values(DB.runs).filter(r => DB.ratings[r.key] && DB.ratings[r.key].n)
-      .sort((a, b) => score(DB.ratings[b.key]) - score(DB.ratings[a.key]) || DB.ratings[b.key].n - DB.ratings[a.key].n);
-    const c = card("League table");
-    c.appendChild(el("p", "sub", "Each bottling run (one blend from one barrel), best rated first. Score: 👍 = 1, 👌 = ½, 👎 = 0."));
-    if (!rated.length) c.appendChild(el("p", "muted", "No bottles rated yet."));
+    const LV = {
+      blends:  { title: "Blend rating",  sub: "Each blend, all its barrels and bottles together, best rated first.", next: ["Barrel rating ›", "#league/barrels"] },
+      barrels: { title: "Barrel rating", sub: "Each bottling run (one blend from one barrel), best rated first.", back: "#league", next: ["Bottle rating ›", "#league/bottles"] },
+      bottles: { title: "Bottle rating", sub: "Each numbered bottle, best rated first.", back: "#league/barrels" },
+    }[level];
+    if (LV.back) {
+      const back = el("a", "button soft small", "‹ Back"); back.href = LV.back; back.style.marginBottom = "12px";
+      $main.appendChild(back);
+    }
+    const c = card(LV.title);
+    c.appendChild(el("p", "sub", LV.sub + " Score: 👍 = 1, 👌 = ½, 👎 = 0."));
+    if (LV.next) { const nx = el("a", "button primary full", LV.next[0]); nx.href = LV.next[1]; nx.style.margin = "12px 0 4px"; c.appendChild(nx); }
+
+    // rows: { href, name, sub, agg }
+    let rows = [];
+    if (level === "blends") {
+      const byBlend = {};
+      Object.keys(DB.ratings).forEach(k => {
+        const a = DB.ratings[k], r = DB.runs[k]; if (!a.n || !r) return;
+        const t = byBlend[r.blend] || (byBlend[r.blend] = { Good: 0, OK: 0, Poor: 0, n: 0, tags: {} });
+        ["Good", "OK", "Poor", "n"].forEach(x => t[x] += a[x]);
+        Object.entries(a.tags).forEach(([x, v]) => t.tags[x] = (t.tags[x] || 0) + v);
+      });
+      rows = Object.keys(byBlend).map(id => {
+        const bl = DB.blends[id];
+        return { href: "#blend/" + id, name: (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(id),
+                 sub: bl ? bl.apples.map(x => x.variety).join(", ") : "", agg: byBlend[id] };
+      });
+    } else if (level === "barrels") {
+      rows = Object.values(DB.runs).filter(r => DB.ratings[r.key] && DB.ratings[r.key].n).map(r => {
+        const bl = DB.blends[r.blend], br = DB.barrels[r.barrel];
+        const m = r.filled && r.bottled ? months(r.filled, r.bottled) : null;
+        return { href: "#" + r.key, name: (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(r.blend) + " · " + r.barrel,
+                 sub: [bl ? bl.apples.map(x => x.variety).join(", ") : null, r.yeast || (bl && bl.yeast), br && br.size, m != null ? m.toFixed(1) + " months in barrel" : null].filter(Boolean).join(" · "),
+                 agg: DB.ratings[r.key] };
+      });
+    } else {
+      rows = Object.values(DB.bottleRatings).map(b => {
+        const bl = DB.blends[b.blend];
+        return { href: "#" + b.code, name: "Bottle " + b.code, sub: (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(b.blend) + " · " + b.barrel, agg: b };
+      });
+    }
+    rows.sort((a, b) => score(b.agg) - score(a.agg) || b.agg.n - a.agg.n);
+    if (!rows.length) c.appendChild(el("p", "muted", "No bottles rated yet."));
     const list = el("div", "list");
-    rated.forEach((r, i) => {
-      const a = el("a"); a.href = "#" + r.key;
-      const bl = DB.blends[r.blend], br = DB.barrels[r.barrel], agg = DB.ratings[r.key];
-      const left = el("div");
-      left.style.flex = "1";
-      const m = r.filled && r.bottled ? months(r.filled, r.bottled) : null;
-      add(left, el("div", "name", (bl ? vlabel(bl.vintage) + " · " : "") + "Blend " + blendLetter(r.blend) + " · " + r.barrel),
-          el("div", "sub", [bl ? bl.apples.map(x => x.variety).join(", ") : null, r.yeast || (bl && bl.yeast), br && br.size, m != null ? m.toFixed(1) + " months in barrel" : null].filter(Boolean).join(" · ")),
-          ratingBar(agg));
-      const right = el("div", "right"); right.appendChild(el("div", "score", Math.round(score(agg) * 100) + "%"));
+    rows.forEach((r, i) => {
+      const a = el("a"); a.href = r.href;
+      const left = el("div"); left.style.flex = "1";
+      add(left, el("div", "name", r.name), r.sub ? el("div", "sub", r.sub) : null, ratingBar(r.agg));
+      const right = el("div", "right"); right.appendChild(el("div", "score", Math.round(score(r.agg) * 100) + "%"));
       add(a, el("span", "rank", String(i + 1)), left, right);
       list.appendChild(a);
     });
     $main.appendChild(add(c, list));
-
-    // by blend
-    const byBlend = {};
-    rated.forEach(r => {
-      const a = DB.ratings[r.key], t = byBlend[r.blend] || (byBlend[r.blend] = { Good: 0, OK: 0, Poor: 0, n: 0, tags: {} });
-      ["Good", "OK", "Poor", "n"].forEach(k => t[k] += a[k]);
-      Object.entries(a.tags).forEach(([k, v]) => t.tags[k] = (t.tags[k] || 0) + v);
-    });
-    const bk = Object.keys(byBlend).sort((a, b) => score(byBlend[b]) - score(byBlend[a]));
-    if (bk.length > 1) {
-      const c2 = card("By blend"), l2 = el("div", "list");
-      bk.forEach(id => {
-        const a = el("a"); a.href = "#blend/" + id;
-        const left = el("div"); left.style.flex = "1";
-        add(left, el("div", "name", "Blend " + id), ratingBar(byBlend[id]));
-        const right = el("div", "right"); right.appendChild(el("div", "score", Math.round(score(byBlend[id]) * 100) + "%"));
-        add(a, left, right); l2.appendChild(a);
-      });
-      $main.appendChild(add(c2, l2));
-    }
   }
 
   // ----- printable labels -----
@@ -1319,6 +1340,8 @@ footer a { color: inherit; }
     else if (up === "BLENDS/NEW") blendForm(null);
     else if (up === "BOTTLES") bottlesTab();
     else if (up === "LEAGUE") league();
+    else if (up === "LEAGUE/BARRELS") league("barrels");
+    else if (up === "LEAGUE/BOTTLES") league("bottles");
     else if (/^labels\//i.test(raw)) { FLASH = null; return labels(raw.slice(7)); }
     else if ((m = /^BLEND\/([^/]+)\/EDIT$/.exec(up)) && DB.blends[m[1]]) blendForm(DB.blends[m[1]]);
     else if ((m = /^BLEND\/([^/]+)$/.exec(up)) && DB.blends[m[1]]) blendPage(m[1]);
