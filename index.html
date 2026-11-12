@@ -63,6 +63,9 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .dd-ph { color: var(--muted); opacity: .6; font-style: italic; }
 .dd-arrow { flex: none; color: var(--muted); font-size: 14px; }
 .dd-menu { display: grid; gap: 6px; margin-top: 6px; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.qr-row { display: flex; gap: 14px; align-items: center; }
+.qr-pic { flex: none; padding: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; line-height: 0; }
+.qr-row .sub { margin: 0; }
 .dd-grid { grid-template-columns: repeat(6, 1fr); }
 .dd-grid .pick { justify-items: center; text-align: center; padding: 10px 0; }
 .pick { display: grid; gap: 2px; text-align: left; padding: 10px 12px; background: var(--input); border: 1px solid var(--line); border-radius: 10px; font-weight: 400; }
@@ -544,7 +547,35 @@ footer a { color: inherit; }
     if (which === "reprint") return reprintCard();
     $main.appendChild(bottleFinder());
 
+    // 2) type the serial number from the label
+    const c1 = card("Search by serial number");
+    c1.appendChild(el("p", "sub", "Type the serial number from the label (e.g. 26A-B07-31)."));
+    const f = el("form", "codebox"), inp = el("input");
+    inp.placeholder = "e.g. 26A-B07-31"; inp.autocomplete = "off"; inp.setAttribute("aria-label", "Serial number");
+    f.style.marginTop = "10px";
+    add(f, inp, el("button", "primary", "Go"));
+    const fmsg = el("div", "msg err"); fmsg.hidden = true; fmsg.style.marginTop = "10px";
+    f.addEventListener("submit", ev => {
+      ev.preventDefault();
+      const v = inp.value.trim().toUpperCase(), p = parseCode(v);
+      if (p) {
+        const bad = bottleProblem(p);
+        if (bad) { fmsg.textContent = bad; fmsg.hidden = false; return; }
+        location.hash = p.code;
+      }
+      else { fmsg.textContent = "That serial number isn't recognised. It looks like 26A-B07-31."; fmsg.hidden = false; }
+    });
+    $main.appendChild(add(c1, f, fmsg));
+
+    // 3) scan the QR code with the phone's camera (the code on the label opens the bottle's page)
+    const c3 = card("Scan the QR code on your bottle"), row = el("div", "qr-row");
+    const pic = el("div", "qr-pic"); pic.innerHTML = QR_PIC;
+    add(row, pic, el("p", "sub", "Open your phone's camera and point it at the QR code on the bottle's label. Tap the link that appears and your bottle's page opens."));
+    $main.appendChild(add(c3, row));
+
   }
+
+  const QR_PIC = '<svg viewBox="-1 -1 17 17" width="88" height="88" fill="var(--ink)" aria-hidden="true" shape-rendering="crispEdges"><rect x="0" y="0" width="7" height="7"/><rect x="1" y="1" width="5" height="5" fill="var(--card)"/><rect x="2" y="2" width="3" height="3"/><rect x="8" y="0" width="7" height="7"/><rect x="9" y="1" width="5" height="5" fill="var(--card)"/><rect x="10" y="2" width="3" height="3"/><rect x="0" y="8" width="7" height="7"/><rect x="1" y="9" width="5" height="5" fill="var(--card)"/><rect x="2" y="10" width="3" height="3"/><rect x="1" y="9" width="1" height="1"/><rect x="3" y="8" width="1" height="1"/><rect x="2" y="10" width="1" height="1"/><rect x="4" y="11" width="1" height="1"/><rect x="9" y="1" width="1" height="1"/><rect x="10" y="3" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="11" y="2" width="1" height="1"/><rect x="9" y="9" width="1" height="1"/><rect x="10" y="10" width="1" height="1"/><rect x="12" y="9" width="1" height="1"/><rect x="9" y="12" width="1" height="1"/><rect x="11" y="11" width="1" height="1"/><rect x="12" y="12" width="1" height="1"/><rect x="10" y="13" width="1" height="1"/><rect x="13" y="10" width="1" height="1"/><rect x="8" y="8" width="1" height="1"/><rect x="14" y="14" width="1" height="1"/><rect x="13" y="13" width="1" height="1"/><rect x="14" y="8" width="1" height="1"/><rect x="8" y="14" width="1" height="1"/><rect x="11" y="8" width="1" height="1"/><rect x="8" y="11" width="1" height="1"/><rect x="4" y="9" width="1" height="1"/><rect x="1" y="12" width="1" height="1"/><rect x="9" y="4" width="1" height="1"/><rect x="12" y="1" width="1" height="1"/><rect x="14" y="11" width="1" height="1"/><rect x="11" y="14" width="1" height="1"/><rect x="6" y="9" width="1" height="1"/><rect x="9" y="6" width="1" height="1"/><rect x="6" y="12" width="1" height="1"/><rect x="12" y="6" width="1" height="1"/></svg>';
 
   // A drop-down drawn by the page (phone drop-down text is too big). items: [{value, main, sub}]
   function pickBox(placeholder, items, onPick, grid) {
