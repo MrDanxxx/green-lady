@@ -58,6 +58,11 @@ main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 .lbl { display: grid; gap: 6px; }
 .lbl-t { font-size: 14px; font-weight: 600; }
 .picks { display: grid; gap: 8px; }
+.dd-btn { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; background: var(--input); border: 1px solid var(--line); border-radius: 8px; font-weight: 400; }
+.dd-txt { display: grid; gap: 2px; min-width: 0; }
+.dd-ph { color: var(--muted); opacity: .6; font-style: italic; }
+.dd-arrow { flex: none; color: var(--muted); font-size: 14px; }
+.dd-menu { display: grid; gap: 6px; margin-top: 6px; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
 .pick { display: grid; gap: 2px; text-align: left; padding: 10px 12px; background: var(--input); border: 1px solid var(--line); border-radius: 10px; font-weight: 400; }
 .pick-id { font-weight: 700; font-size: 15px; }
 .pick-sub { font-size: 13px; color: var(--muted); line-height: 1.35; }
@@ -996,22 +1001,35 @@ footer a { color: inherit; }
   function fillForm(b) {
     const cur = b.current;
     const f = formCard((cur ? "Edit fill · " : "Fill ") + vesselName(b), "barrels");
-    // Blend chooser: tappable cards (a phone's own drop-down text can't be sized by the page).
-    const blend = el("div", "picks"), ids = Object.keys(DB.blends).sort().reverse();
+    // Blend drop-down drawn by the page (a phone's own drop-down text can't be sized by the page).
+    const blend = el("div", "dd"), ids = Object.keys(DB.blends).sort().reverse();
     if (cur && cur.blend && !DB.blends[cur.blend]) ids.unshift(cur.blend);
     blend.value = cur ? cur.blend : "";
+    const applesOf = id => DB.blends[id] ? DB.blends[id].apples.map(x => x.variety + (x.share ? " " + x.share : "")).join(", ") : "";
+    const btn = el("button", "dd-btn"); btn.type = "button";
+    const menu = el("div", "dd-menu"); menu.hidden = true;
+    const showChoice = () => {
+      btn.replaceChildren();
+      const txt = el("span", "dd-txt");
+      if (blend.value) add(txt, el("span", "pick-id", "Blend " + blend.value), el("span", "pick-sub", applesOf(blend.value)));
+      else txt.appendChild(el("span", "dd-ph", ids.length ? "Choose a blend…" : "No blends yet"));
+      add(btn, txt, el("span", "dd-arrow", menu.hidden ? "▾" : "▴"));
+    };
     ids.forEach(id => {
-      const bl = DB.blends[id], bt = el("button", "pick"); bt.type = "button";
-      add(bt, el("span", "pick-id", "Blend " + id), bl ? el("span", "pick-sub", bl.apples.map(x => x.variety + (x.share ? " " + x.share : "")).join(", ")) : null);
-      bt.classList.toggle("on", id === blend.value);
-      bt.addEventListener("click", () => {
-        blend.value = id;
-        blend.querySelectorAll(".pick").forEach(x => x.classList.toggle("on", x === bt));
+      const opt = el("button", "pick"); opt.type = "button";
+      add(opt, el("span", "pick-id", "Blend " + id), el("span", "pick-sub", applesOf(id)));
+      opt.addEventListener("click", () => {
+        blend.value = id; menu.hidden = true;
+        menu.querySelectorAll(".pick").forEach(x => x.classList.toggle("on", x === opt));
+        showChoice();
         blend.dispatchEvent(new Event("change"));
       });
-      blend.appendChild(bt);
+      opt.classList.toggle("on", id === blend.value);
+      menu.appendChild(opt);
     });
-    if (!ids.length) blend.appendChild(el("p", "muted", "No blends yet."));
+    btn.addEventListener("click", () => { if (ids.length) { menu.hidden = !menu.hidden; showChoice(); } });
+    showChoice();
+    add(blend, btn, menu);
     const filled = input(cur ? (cur.filled || isoToday()) : isoToday(), { type: "date" });
     const yeast = input(cur ? (cur.fillYeast || "") : "", { placeholder: "e.g. SafCider TF-6" });
     suggest(yeast, "dl-yeasts", knownYeasts());
