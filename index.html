@@ -1015,7 +1015,7 @@ footer a { color: inherit; }
     const w = document.getElementById("who");
     if (crew()) {
       const out = el("button", null, "Sign out"); out.type = "button";
-      out.addEventListener("click", () => { store.del("gl-pin"); FLASH = { text: "Signed out. Sign in again to make changes." }; route(); });
+      out.addEventListener("click", () => { store.del("gl-pin"); route(); });
       w.replaceChildren(document.createTextNode("Signed in" + (store.get("gl-name") ? " as " + store.get("gl-name") : "") + " · "), out);
     } else w.replaceChildren();   // not signed in: no sign-in link (press and hold the apple instead)
   }
