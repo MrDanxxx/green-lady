@@ -517,7 +517,7 @@ footer a { color: inherit; }
 
     const runs = Object.values(DB.runs).filter(r => r.bottled).sort((a, b) => (b.bottled || "").localeCompare(a.bottled || ""));
     const c2 = card("Bottled batches"), list = el("div", "list");
-    if (!runs.length) c2.appendChild(el("p", "muted", "Nothing bottled yet. Bottling is recorded on the barrel: Barrels → pick the barrel → Bottled."));
+    if (!runs.length) c2.appendChild(el("p", "muted", "Nothing bottled yet. Bottling is recorded on the barrel: Barrels → pick the barrel → Bottle it."));
     runs.forEach(r => {
       const bl = DB.blends[r.blend], a = el("a"); a.href = "#" + r.key;
       const left = el("div");
@@ -531,22 +531,6 @@ footer a { color: inherit; }
       list.appendChild(a);
     });
     $main.appendChild(add(c2, list));
-
-    if (runs.length) {
-      const c3 = card("Print bottle labels"), lf = el("form");
-      lf.style.marginTop = "0";
-      const sel = el("select");
-      runs.forEach(r => { const o = el("option", null, r.key + " · bottled " + fmtDate(r.bottled)); o.value = r.key; sel.appendChild(o); });
-      const cnt = input(String(runs[0].bottles || 24), { inputMode: "numeric" });
-      const first = input("1", { inputMode: "numeric" });
-      sel.addEventListener("change", () => { const r = DB.runs[sel.value]; cnt.value = String((r && r.bottles) || 24); });
-      add(lf, field("Batch", sel), add(el("div", "two"), field("How many", cnt), field("First number", first)), el("button", "primary full", "Make labels"));
-      lf.addEventListener("submit", ev => {
-        ev.preventDefault();
-        location.hash = "labels/" + sel.value + "/" + (parseInt(cnt.value, 10) || 24) + "/" + (parseInt(first.value, 10) || 1);
-      });
-      $main.appendChild(add(c3, lf));
-    }
 
     const c4 = card("Ratings"), l1 = el("a", "button primary full", "League table");
     l1.href = "#league";
@@ -700,6 +684,20 @@ footer a { color: inherit; }
       inputs.blend.addEventListener("change", fillYeast);
       fillYeast();
     }
+    // Bottle it: print the bottle labels from here (batch = this blend in this barrel).
+    if (action === "Bottled" && b.current) {
+      const run = b.current.blend + "-" + b.id;
+      const first = input("1", { inputMode: "numeric" });
+      const mk = el("button", "primary full", "Make labels"); mk.type = "button";
+      const lbox = add(el("div", "confirm"), el("h3", null, "Print bottle labels"), field("First number", first, "Uses “How many bottles?” above. Batch " + run), mk);
+      lbox.querySelector("h3").style.marginTop = "0";
+      mk.addEventListener("click", () => {
+        const n = parseInt(inputs.bottles.value, 10);
+        if (!n) return show("Enter how many bottles first.");
+        location.hash = "labels/" + run + "/" + n + "/" + (parseInt(first.value, 10) || 1);
+      });
+      f.appendChild(lbox);
+    }
     const auth = pinFields(f);
     const msg = el("div", "msg"); msg.hidden = true;
     const save = el("button", "primary full", bare ? "Save note" : "Save");
@@ -723,7 +721,6 @@ footer a { color: inherit; }
       if (!await pinPost(body, auth, save, show)) return;
       const DONE = { Bottled: "Bottled", Empty: "Emptied", Fill: "Filled", Note: "Note saved", Reading: "Reading saved", Yeast: "Yeast saved", Moved: "Moved" };
       FLASH = { text: (DONE[action] || "Saved") + ": " + b.id + "." };
-      if (action === "Bottled") FLASH.link = { text: "Print " + (body.bottles || "") + " bottle labels", href: "#labels/" + body.blend + "-" + b.id + "/" + (parseInt(body.bottles, 10) || 24) };
       route();
     });
     function show(t) { msg.className = "msg err"; msg.textContent = t; msg.hidden = false; }
