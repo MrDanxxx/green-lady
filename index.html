@@ -131,7 +131,12 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bt-name { font-weight: 700; }
 .bt-date { font-size: 14px; color: var(--muted); }
 .bt-edit { position: relative; z-index: 1; }   /* above the row link */
-.bt-tick { width: 24px; height: 24px; margin: 0; accent-color: var(--btn); cursor: pointer; }
+.bt-tick { appearance: none; -webkit-appearance: none; position: relative; width: 26px; height: 26px; margin: 0; padding: 0; border: 2px solid var(--line); border-radius: 6px; background: var(--input); cursor: pointer; }
+.bt-tick::after { content: ""; position: absolute; left: 7px; top: 2px; width: 7px; height: 13px; border: solid var(--btn); border-width: 0 3px 3px 0; transform: rotate(45deg); opacity: 0; }
+.bt-tick:hover { border-color: var(--btn); }
+.bt-tick:hover::after { opacity: .45; }   /* hover: a pale tick shows; nothing happens until it's clicked */
+.bt-tick:checked { background: var(--btn); border-color: var(--btn); }
+.bt-tick:checked::after { opacity: 1; border-color: #fff; }
 .list a.brow { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; }
 .list a.brow > .pill, .list a.brow > .mid { justify-self: center; }
 .list a.brow .mid { display: grid; justify-items: center; gap: 2px; }
