@@ -865,8 +865,8 @@ footer a { color: inherit; }
       const body = { kind: "barrel", isNew: !b, barrel: id, size: sz, type: type.value.trim(), location: where, notes: b ? b.notes : "",   // no notes box; keep any already in the Sheet
                      moved: !!b && !!where && where !== b.location };
       if (!await pinPost(body, auth, save, show)) return;
-      FLASH = { text: b ? "Saved changes to " + id + "." : "Added " + id + ". Write its NFC tag or print a QR sticker when you're ready." };
-      location.hash = id;
+      FLASH = { text: b ? "Saved changes to " + id + "." : id + " added." };
+      location.hash = b ? id : "barrels";   // a new barrel goes back to the list
     });
   }
 
